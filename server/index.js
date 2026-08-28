@@ -4,13 +4,24 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import mssql from 'mssql';
-import 'dotenv/config';
+import { cert, getApps, initializeApp } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
+import dotenv from 'dotenv';
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.join(directory, '.env') });
 const settings = JSON.parse(await fs.readFile(path.join(directory, 'sql-settings.json'), 'utf8'));
 const queriesDirectory = path.join(directory, 'queries');
+let firebaseServiceAccount = null;
+try {
+  firebaseServiceAccount = JSON.parse(await fs.readFile(path.join(directory, 'firebase-service-account.json'), 'utf8'));
+} catch {
+  // The file is created locally from Firebase Console and is intentionally ignored by Git.
+}
 const app = express();
 const port = Number(process.env.API_PORT || 3001);
+const allowedEmailDomains = (process.env.ALLOWED_EMAIL_DOMAINS || 'petmoregroups.com,newgenman.co.th')
+  .split(',').map((domain) => domain.trim().toLowerCase()).filter(Boolean);
 
 const poolConfig = {
   server: process.env.DB_SERVER || settings.connection.server,
@@ -32,6 +43,35 @@ if (!poolConfig.password) {
   throw new Error('Missing DB_PASSWORD. Add it to server/.env before starting the API.');
 }
 const poolReady = pool.connect();
+
+const envFirebaseReady = process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL
+  && process.env.FIREBASE_PRIVATE_KEY && !process.env.FIREBASE_CLIENT_EMAIL.startsWith('REPLACE_')
+  && !process.env.FIREBASE_PRIVATE_KEY.includes('REPLACE_WITH');
+if (!getApps().length && (firebaseServiceAccount || envFirebaseReady)) {
+  const serviceAccount = firebaseServiceAccount || {
+    projectId: process.env.FIREBASE_PROJECT_ID,
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+    privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+  };
+  initializeApp({ credential: cert(serviceAccount) });
+}
+
+async function requireAuth(req, res, next) {
+  if (!getApps().length) return res.status(503).json({ message: 'ระบบ Login ยังตั้งค่าไม่ครบ' });
+  const token = req.headers.authorization?.startsWith('Bearer ')
+    ? req.headers.authorization.slice(7)
+    : null;
+  if (!token) return res.status(401).json({ message: 'กรุณา Login ก่อนใช้งาน' });
+  try {
+    req.user = await getAuth().verifyIdToken(token);
+    const email = String(req.user.email || '').toLowerCase();
+    const domain = email.split('@').pop();
+    if (!email || !allowedEmailDomains.includes(domain)) {
+      return res.status(403).json({ message: 'อีเมลนี้ไม่มีสิทธิ์ใช้งานระบบ' });
+    }
+    next();
+  } catch { res.status(401).json({ message: 'Session หมดอายุ กรุณา Login ใหม่' }); }
+}
 
 app.use(cors({ origin: process.env.WEB_ORIGIN || 'http://127.0.0.1:5173' }));
 app.use(express.json());
@@ -55,7 +95,7 @@ app.get('/api/health', async (_req, res) => {
   }
 });
 
-app.get('/api/products/scan/:scanValue', async (req, res, next) => {
+app.get('/api/products/scan/:scanValue', requireAuth, async (req, res, next) => {
   try {
     const scanValue = req.params.scanValue.trim();
     if (!scanValue || scanValue.length > 100) return res.status(400).json({ message: 'รหัสที่สแกนไม่ถูกต้อง' });
@@ -81,7 +121,7 @@ app.get('/api/products/scan/:scanValue', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
-app.get('/api/products/:goodsKey/stock', async (req, res, next) => {
+app.get('/api/products/:goodsKey/stock', requireAuth, async (req, res, next) => {
   try {
     const goodsKey = asGoodsKey(req.params.goodsKey);
     if (!goodsKey) return res.status(400).json({ message: 'รหัสสินค้าไม่ถูกต้อง' });
@@ -96,7 +136,7 @@ app.get('/api/products/:goodsKey/stock', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
-app.get('/api/products/:goodsKey/history/:kind', async (req, res, next) => {
+app.get('/api/products/:goodsKey/history/:kind', requireAuth, async (req, res, next) => {
   try {
     const goodsKey = asGoodsKey(req.params.goodsKey);
     const file = req.params.kind === 'receipts' ? 'receipts.sql' : req.params.kind === 'transfers' ? 'transfers.sql' : null;

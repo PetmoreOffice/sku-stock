@@ -1,12 +1,19 @@
 /*
-THESIS: A warehouse label, not a transaction screen; scanning reveals proof of stock.
+THESIS: A warehouse control room, not a transaction screen; login establishes a focused read-only station.
 OWN-WORLD: White operational surfaces, ink-navy type, green availability and blue transfer signals.
 STORY: Scan, identify the SKU and unit, verify stock by branch, then inspect evidence.
 FIRST VIEWPORT: Search field first; product identity and total stock follow without scrolling.
 FORM: Handheld one-column evidence card with compact branch rows and segmented history.
 */
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { auth } from './firebase';
+import '@fontsource/noto-sans-thai/400.css';
+import '@fontsource/noto-sans-thai/500.css';
+import '@fontsource/noto-sans-thai/600.css';
+import '@fontsource/noto-sans-thai/700.css';
+import '@fontsource/noto-sans-thai/800.css';
 import './styles.css';
 
 function formatDate(value) {
@@ -45,7 +52,48 @@ function Icon({ name, size = 24, stroke = 1.9 }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }
 
+function Login({ onLogin }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const submit = async (event) => {
+    event.preventDefault(); setError(''); setLoading(true);
+    const normalizedEmail = email.trim().toLowerCase();
+    const allowed = ['petmoregroups.com', 'newgenman.co.th'];
+    if (!allowed.some((domain) => normalizedEmail.endsWith(`@${domain}`))) {
+      setError('กรุณาใช้อีเมล @petmoregroups.com หรือ @newgenman.co.th'); setLoading(false); return;
+    }
+    try { await signInWithEmailAndPassword(auth, normalizedEmail, password); onLogin(); }
+    catch { setError('อีเมลหรือรหัสผ่านไม่ถูกต้อง'); }
+    finally { setLoading(false); }
+  };
+  return <main className="login-shell"><div className="login-frame">
+    <section className="login-hero">
+      <div className="login-brand"><span className="login-brand-mark"><Icon name="scan" size={25} /></span><span>SKU STOCK</span></div>
+      <div className="control-grid" aria-hidden="true"><i/><i/><i/><i/><i/><i/></div>
+      <div className="login-hero-copy"><p className="login-kicker">WAREHOUSE STOCK LOOKUP SYSTEM</p>
+        <h1>SKU<br/><em>STOCK</em></h1>
+        <p>ตรวจสอบสต็อกสินค้า<br/>รวดเร็ว · แม่นยำ · อ่านอย่างเดียว</p>
+      </div>
+      <div className="control-status"><span className="status-dot"/> ระบบพร้อมใช้งาน <b>READ-ONLY</b></div>
+    </section>
+    <section className="login-card">
+      <p className="eyebrow">SECURE ACCESS</p><h2>เข้าสู่ระบบ</h2>
+      <p className="login-copy">ใช้บัญชีบริษัทเพื่อดูข้อมูลสต็อก</p>
+    <form onSubmit={submit} className="login-form">
+      <label>อีเมลบริษัท<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="username" /></label>
+      <label>รหัสผ่าน<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" /></label>
+      {error && <p className="error-message">{error}</p>}
+      <button className="login-button" disabled={loading}>{loading ? 'กำลังตรวจสอบ…' : 'เข้าสู่ระบบ'}</button>
+    </form>
+    <p className="login-footnote">ใช้ได้เฉพาะอีเมลบริษัท<br/>@petmoregroups.com หรือ @newgenman.co.th</p>
+    </section>
+  </div></main>;
+}
+
 function App() {
+  const [user, setUser] = useState(undefined);
   const [query, setQuery] = useState('');
   const [product, setProduct] = useState(null);
   const [tab, setTab] = useState('receipt');
@@ -56,6 +104,7 @@ function App() {
   const [stockLoading, setStockLoading] = useState(false);
   const [error, setError] = useState('');
   const inputRef = useRef(null);
+  useEffect(() => onAuthStateChanged(auth, setUser), []);
   const totalStock = useMemo(() => stockRows.reduce((sum, row) => sum + Number(row.QTY || 0), 0), [stockRows]);
   const stockUnit = stockRows[0]?.UTQ_NAME || product?.scannedUnit || '';
 
@@ -64,7 +113,7 @@ function App() {
   const loadHistory = async (goodsKey, kind) => {
     setHistoryLoading(true);
     try {
-      const response = await fetch(`/api/products/${goodsKey}/history/${kind === 'receipt' ? 'receipts' : 'transfers'}`);
+      const response = await auth.currentUser.getIdToken().then((token) => fetch(`/api/products/${goodsKey}/history/${kind === 'receipt' ? 'receipts' : 'transfers'}`, { headers: { Authorization: `Bearer ${token}` } }));
       if (!response.ok) throw new Error('ไม่สามารถอ่านประวัติรายการได้');
       setRecords(mapHistory(await response.json(), kind));
     } catch (requestError) {
@@ -78,7 +127,7 @@ function App() {
   const loadStock = async (goodsKey) => {
     setStockLoading(true);
     try {
-      const response = await fetch(`/api/products/${goodsKey}/stock`);
+      const response = await auth.currentUser.getIdToken().then((token) => fetch(`/api/products/${goodsKey}/stock`, { headers: { Authorization: `Bearer ${token}` } }));
       if (!response.ok) throw new Error('ไม่สามารถอ่านยอดคงเหลือได้');
       setStockRows(await response.json());
     } catch (requestError) {
@@ -96,7 +145,8 @@ function App() {
     setLoading(true);
     setError('');
     try {
-      const response = await fetch(`/api/products/scan/${encodeURIComponent(scanValue)}`);
+      const token = await auth.currentUser.getIdToken();
+      const response = await fetch(`/api/products/scan/${encodeURIComponent(scanValue)}`, { headers: { Authorization: `Bearer ${token}` } });
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || 'ไม่สามารถค้นหาสินค้าได้');
       setProduct(data);
@@ -120,31 +170,33 @@ function App() {
     requestAnimationFrame(() => inputRef.current?.focus());
   };
 
+  if (user === undefined) return <main className="login-shell"><p>กำลังตรวจสอบสิทธิ์…</p></main>;
+  if (!user) return <Login onLogin={() => {}} />;
   return <main className="app-shell">
     <header className="topbar">
       <div>
         <p className="eyebrow">คลังสินค้า</p>
         <h1>ตรวจสอบสต็อก</h1>
       </div>
-      <button className="icon-button" aria-label="ดูประวัติการค้นหา"><Icon name="history" /></button>
+      <button className="icon-button" onClick={() => signOut(auth)} aria-label="ออกจากระบบ"><Icon name="close" /></button>
     </header>
 
     <form className="scan-form" onSubmit={search}>
-      <label htmlFor="sku-search">สแกนหรือค้นหา SKU</label>
+      <label htmlFor="sku-search">สแกนบาร์โค้ดสินค้า</label>
       <div className="scan-input-wrap">
         <Icon name="scan" size={25} />
-        <input ref={inputRef} id="sku-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="สแกนบาร์โค้ด หรือพิมพ์ SKU" autoComplete="off" />
+        <input ref={inputRef} id="sku-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="สแกนบาร์โค้ด หรือกรอกรหัสสินค้า" autoComplete="off" />
         {query && <button type="button" className="clear-button" onClick={reset} aria-label="ล้างคำค้น"><Icon name="close" size={20} /></button>}
       </div>
-      <p className="hint">รองรับการสแกนจาก Handheld และค้นหาด้วยรหัสสินค้า</p>
+      <p className="hint">สแกนด้วยเครื่อง Handheld หรือกรอกรหัสสินค้าแทน</p>
     </form>
 
     {error && <p className="error-message" role="alert">{error}</p>}
 
     {!product && !loading && <section className="empty-state">
       <div className="empty-icon"><Icon name="scan" size={28} /></div>
-      <h2>พร้อมสแกนสินค้า</h2>
-      <p>สแกนบาร์โค้ด หรือพิมพ์ SKU เพื่อดูจำนวนคงเหลือและประวัติรายการ</p>
+      <h2>พร้อมตรวจสอบสินค้า</h2>
+      <p>สแกนบาร์โค้ดเพื่อดูยอดคงเหลือและประวัติรายการ</p>
     </section>}
 
     {loading && <section className="empty-state"><div className="empty-icon loading"><Icon name="scan" size={28} /></div><h2>กำลังค้นหาสินค้า</h2><p>กำลังอ่านข้อมูลจากระบบคลังสินค้า</p></section>}
@@ -153,7 +205,7 @@ function App() {
       <section className="product-card" aria-labelledby="product-name">
         <div className="product-symbol"><Icon name="box" size={31} /></div>
         <div className="product-main">
-          <p className="status"><span />พบสินค้า</p>
+          <p className="status"><span />พบข้อมูลสินค้า</p>
           <h2 id="product-name">{product.name}</h2>
           <p className="sku">{product.sku}</p>
         </div>
@@ -166,12 +218,12 @@ function App() {
       <section className="stock-section" aria-labelledby="stock-title">
         <div className="section-heading">
           <div>
-            <p className="eyebrow">คงเหลือทุกสาขา</p>
+            <p className="eyebrow">ยอดคงเหลือแยกตาม Location</p>
             <h2 id="stock-title">{stockLoading ? '…' : formatQuantity(totalStock)} <span>{stockLoading ? '' : stockUnit}</span></h2>
           </div>
-          <p className="updated">คงเหลือทุก<br/><strong>Location</strong></p>
+          <p className="updated">ข้อมูลจากทุก<br/><strong>Location</strong></p>
         </div>
-        <p className="conversion">หน่วยที่สแกน: <strong>{product.scannedUnit}</strong> <span>•</span> 1 หน่วย = {Number(product.unitMultiplier || 1).toLocaleString('th-TH')} หน่วยย่อย</p>
+        <p className="conversion">หน่วยจากบาร์โค้ด: <strong>{product.scannedUnit}</strong> <span>•</span> 1 หน่วย = {Number(product.unitMultiplier || 1).toLocaleString('th-TH')} หน่วยย่อย</p>
         <div className="branch-list">
           {stockLoading && <p className="history-status">กำลังอ่านยอดคงเหลือ…</p>}
           {!stockLoading && stockRows.length === 0 && <p className="history-status">ไม่พบยอดคงเหลือใน Location</p>}
@@ -185,7 +237,7 @@ function App() {
       </section>
 
       <section className="history-section" aria-labelledby="history-title">
-        <div className="history-heading"><h2 id="history-title">ประวัติรายการล่าสุด</h2><span>ข้อมูลตัวอย่าง</span></div>
+        <div className="history-heading"><h2 id="history-title">รายการล่าสุด</h2><span>ข้อมูลจากระบบคลัง</span></div>
         <div className="tabs" role="tablist" aria-label="เลือกประเภทประวัติ">
           <button className={tab === 'receipt' ? 'active receipt' : ''} onClick={() => { setTab('receipt'); loadHistory(product.goodsKey, 'receipt'); }} role="tab" aria-selected={tab === 'receipt'}>รับเข้า</button>
           <button className={tab === 'transfer' ? 'active transfer' : ''} onClick={() => { setTab('transfer'); loadHistory(product.goodsKey, 'transfer'); }} role="tab" aria-selected={tab === 'transfer'}>โอนย้าย</button>
