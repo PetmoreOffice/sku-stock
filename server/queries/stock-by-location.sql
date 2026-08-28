@@ -1,0 +1,26 @@
+/*
+  Current stock by warehouse location for one scanned GOODS_KEY.
+  @goodsKey is supplied as a parameter by the API.
+*/
+WITH Stock AS (
+  SELECT
+    G.GOODS_KEY,
+    W.WL_CODE,
+    SUM(K.SKM_QTY) AS SKM_QTY
+  FROM SKUMOVE AS K
+  JOIN GOODSMASTER AS G ON K.SKM_SKU = G.GOODS_SKU
+  JOIN WARELOCATION AS W ON K.SKM_WL = W.WL_KEY
+  WHERE G.GOODS_KEY = @goodsKey
+  GROUP BY G.GOODS_KEY, W.WL_CODE
+)
+SELECT
+  S.GOODS_KEY,
+  S.WL_CODE,
+  ISNULL(
+    CAST(S.SKM_QTY AS DECIMAL(18, 4)) / NULLIF(U.UTQ_QTY, 0),
+    0
+  ) AS QTY,
+  U.UTQ_NAME
+FROM Stock AS S
+JOIN GOODSMASTER AS G ON S.GOODS_KEY = G.GOODS_KEY
+JOIN UOFQTY AS U ON G.GOODS_UTQ = U.UTQ_KEY;

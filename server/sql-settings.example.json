@@ -1,0 +1,30 @@
+{
+  "connection": {
+    "server": "YOUR_SQL_SERVER_OR_IP",
+    "port": 1433,
+    "database": "YOUR_DATABASE_NAME",
+    "authentication": "sql",
+    "username": "READ_ONLY_USERNAME",
+    "password": "SET_DB_PASSWORD_IN_SERVER_ENV_FILE",
+    "encrypt": false,
+    "trustServerCertificate": false
+  },
+  "sources": {
+    "products": {
+      "queryFile": "server/queries/product-lookup.sql",
+      "scannerLookupColumn": "GOODS_CODE",
+      "scannerFallbackColumn": "SKU_BARCODE",
+      "nameColumn": "SKU_NAME",
+      "scannedUnitCodeColumn": "UTQ_NAME",
+      "unitConversionColumn": "UTQ_QTY"
+    },
+    "stockByBranch": {
+      "queryFile": "server/queries/stock-by-location.sql",
+      "locationColumn": "WL_CODE",
+      "quantityColumn": "QTY",
+      "unitColumn": "UTQ_NAME"
+    },
+    "receipts": { "queryFile": "server/queries/receipts.sql", "documentTypeProperties": [311, 312] },
+    "transfers": { "queryFile": "server/queries/transfers.sql", "documentTypeProperties": [311, 312, 301, 303, 304, 336] }
+  }
+}
