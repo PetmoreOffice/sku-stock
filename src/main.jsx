@@ -35,6 +35,7 @@ function mapHistory(rows, kind) {
     title: kind === 'receipt' ? (row.TRD_SH_REMARK || 'รับเข้า') : `${row.WL_CODE || 'ไม่ระบุต้นทาง'} → ${row.TRD_TO_WL || 'ไม่ระบุปลายทาง'}`,
     ref: row.DI_REF || 'ไม่ระบุเลขเอกสาร',
     location: kind === 'receipt' ? (row.TRD_TO_WL || row.WL_CODE || 'ไม่ระบุคลัง') : 'โอนย้าย',
+    expiry: row.TRD_EXP_D ? formatDate(row.TRD_EXP_D) : '',
     amount: Number(row.TRD_SH_QTY || 0).toLocaleString('th-TH'),
     unit: row.TRD_UTQNAME || '',
   }));
@@ -337,7 +338,7 @@ function App() {
         {!allHistoryLoading && filteredAllHistory.length === 0 && <p className="history-status">ไม่พบประวัติ{historyFilter === 'all' ? '' : historyFilter === 'receipt' ? 'รับเข้า' : 'โอนย้าย'}ของสินค้านี้</p>}
         {!allHistoryLoading && filteredAllHistory.map((entry, index) => <article className="all-history-record" key={`${entry.kind}-${entry.ref}-${index}`}>
           <time><strong>{entry.date}</strong><span>{entry.time ? `${entry.time} น.` : 'ไม่ระบุเวลา'}</span></time>
-          <div className="record-detail"><strong>{entry.title}</strong><span>{entry.ref} · {entry.location}</span></div>
+          <div className="record-detail"><strong>{entry.title}</strong><span>{entry.ref} · {entry.location}</span>{entry.expiry && <span className="expiry-date">หมดอายุ: {entry.expiry}</span>}</div>
           <div className={`record-amount ${entry.kind}`}><span className={`history-kind ${entry.kind}`}>{entry.kind === 'receipt' ? 'รับเข้า' : 'โอนย้าย'}</span><strong>{entry.amount}</strong><span>{entry.unit}</span></div>
         </article>)}
       </div>
@@ -441,7 +442,7 @@ function App() {
           {!historyLoading && records.length === 0 && <p className="history-status">ไม่พบประวัติ{activeProductPanel === 'receipt' ? 'รับเข้า' : 'โอนย้าย'}ของสินค้านี้</p>}
           {!historyLoading && records.map((entry, index) => <article className="record" key={`${entry.ref}-${index}`}>
             <time><strong>{entry.date}</strong><span>{entry.time} น.</span></time>
-            <div className="record-detail"><strong>{entry.title}</strong><span>{entry.ref} · {entry.location}</span></div>
+            <div className="record-detail"><strong>{entry.title}</strong><span>{entry.ref} · {entry.location}</span>{entry.expiry && <span className="expiry-date">หมดอายุ: {entry.expiry}</span>}</div>
             <div className={`record-amount ${activeProductPanel}`}><strong>{entry.amount}</strong><span>{entry.unit}</span></div>
           </article>)}
         </div>
