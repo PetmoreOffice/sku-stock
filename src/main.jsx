@@ -322,6 +322,9 @@ function App() {
   if (!user) return <Login onLogin={() => {}} />;
   const filteredAllHistory = historyFilter === 'all' ? allHistory : allHistory.filter((entry) => entry.kind === historyFilter);
   const matchingLocations = locations.filter((location) => location.toLowerCase().includes(locationSearch.trim().toLowerCase()));
+  const quickLocationCodes = ['101', '111', '121', '131', 'TT', 'SP'];
+  const quickLocations = quickLocationCodes.filter((location) => matchingLocations.includes(location));
+  const otherLocations = matchingLocations.filter((location) => !quickLocationCodes.includes(location));
   const receiptCount = allHistory.filter((entry) => entry.kind === 'receipt').length;
   const transferCount = allHistory.filter((entry) => entry.kind === 'transfer').length;
   const locationPicker = locationPickerOpen && <div className="sheet-backdrop" onClick={() => setLocationPickerOpen(false)}>
@@ -329,10 +332,19 @@ function App() {
       <span className="sheet-handle" aria-hidden="true" />
       <div className="location-sheet-heading"><div><p className="eyebrow">ตั้งค่าก่อนสแกน</p><h2 id="location-picker-title">เลือก Location</h2></div><button className="icon-button" type="button" onClick={() => setLocationPickerOpen(false)} aria-label="ปิด"><Icon name="close" size={20}/></button></div>
       <label className="location-search"><Icon name="search" size={19}/><input value={locationSearch} onChange={(event) => setLocationSearch(event.target.value)} placeholder="ค้นหา Location" autoFocus /></label>
-      <div className="location-option-list">
-        {matchingLocations.length === 0 && <p className="history-status">ไม่พบ Location ที่ค้นหา</p>}
-        {matchingLocations.map((location) => <button type="button" className={`location-option ${selectedLocation === location ? 'selected' : ''}`} key={location} onClick={() => chooseLocation(location)}><span><strong>{location}</strong><small>กรองข้อมูลเฉพาะ Location นี้</small></span>{selectedLocation === location && <span className="location-check">เลือกอยู่</span>}</button>)}
-      </div>
+      {quickLocations.length > 0 && <section className="quick-location-section" aria-label="Location ที่ใช้บ่อย">
+        <p className="location-section-title">Location ที่ใช้บ่อย</p>
+        <div className="quick-location-list">
+          {quickLocations.map((location) => <button type="button" className={`quick-location ${selectedLocation === location ? 'selected' : ''}`} key={location} onClick={() => chooseLocation(location)}>{location}{selectedLocation === location && <span>เลือกอยู่</span>}</button>)}
+        </div>
+      </section>}
+      {otherLocations.length > 0 && <section className="other-location-section" aria-label="Location อื่น">
+        <p className="location-section-title">Location อื่น</p>
+        <div className="location-option-list">
+          {otherLocations.map((location) => <button type="button" className={`location-option ${selectedLocation === location ? 'selected' : ''}`} key={location} onClick={() => chooseLocation(location)}><span><strong>{location}</strong><small>กรองข้อมูลเฉพาะ Location นี้</small></span>{selectedLocation === location && <span className="location-check">เลือกอยู่</span>}</button>)}
+        </div>
+      </section>}
+      {matchingLocations.length === 0 && <p className="history-status">ไม่พบ Location ที่ค้นหา</p>}
     </section>
   </div>;
 
