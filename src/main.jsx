@@ -50,9 +50,33 @@ function Icon({ name, size = 24, stroke = 1.9 }) {
     home: <><path d="m3 10 9-7 9 7v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9Z"/><path d="M9 21v-7h6v7"/></>,
     chevron: <path d="m9 18 6-6-6-6"/>,
     back: <path d="m15 18-6-6 6-6"/>,
+    more: <><circle cx="5" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1" fill="currentColor" stroke="none"/></>,
+    logout: <><path d="M10 5H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h5"/><path d="m15 16 4-4-4-4M19 12H9"/></>,
     close: <><path d="m6 6 12 12M18 6 6 18"/></>,
   };
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
+}
+
+function AccountMenu({ email, menuOpen, confirmOpen, onCloseMenu, onRequestSignOut, onCancelSignOut, onConfirmSignOut }) {
+  return <>
+    {menuOpen && <div className="sheet-backdrop" onClick={onCloseMenu}>
+      <section className="account-sheet" role="dialog" aria-modal="true" aria-label="เมนูบัญชี" onClick={(event) => event.stopPropagation()}>
+        <span className="sheet-handle" aria-hidden="true" />
+        <p className="eyebrow">บัญชีที่ใช้งาน</p>
+        <p className="account-email">{email}</p>
+        <button className="signout-action" type="button" onClick={onRequestSignOut}><Icon name="logout" size={20}/><span><strong>ออกจากระบบ</strong><small>จะมีการยืนยันอีกครั้ง</small></span><Icon name="chevron" size={18}/></button>
+        <button className="sheet-cancel" type="button" onClick={onCloseMenu}>ปิดเมนู</button>
+      </section>
+    </div>}
+    {confirmOpen && <div className="dialog-backdrop" role="presentation">
+      <section className="signout-dialog" role="dialog" aria-modal="true" aria-labelledby="signout-title">
+        <div className="signout-dialog-icon"><Icon name="logout" size={23}/></div>
+        <h2 id="signout-title">ออกจากระบบ?</h2>
+        <p>หากออกจากระบบ ต้องกรอกอีเมลและรหัสผ่านอีกครั้งก่อนใช้งาน</p>
+        <div className="dialog-actions"><button type="button" onClick={onCancelSignOut}>ยกเลิก</button><button className="confirm-signout" type="button" onClick={onConfirmSignOut}>ออกจากระบบ</button></div>
+      </section>
+    </div>}
+  </>;
 }
 
 function Login({ onLogin }) {
@@ -110,6 +134,8 @@ function App() {
   const [historyFilter, setHistoryFilter] = useState('all');
   const [stockLoading, setStockLoading] = useState(false);
   const [error, setError] = useState('');
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [signOutConfirmOpen, setSignOutConfirmOpen] = useState(false);
   const inputRef = useRef(null);
   useEffect(() => onAuthStateChanged(auth, setUser), []);
   const totalStock = useMemo(() => stockRows.reduce((sum, row) => sum + Number(row.QTY || 0), 0), [stockRows]);
@@ -205,6 +231,26 @@ function App() {
     requestAnimationFrame(() => inputRef.current?.focus());
   };
 
+  const requestSignOut = () => {
+    setAccountMenuOpen(false);
+    setSignOutConfirmOpen(true);
+  };
+
+  const confirmSignOut = async () => {
+    setSignOutConfirmOpen(false);
+    await signOut(auth);
+  };
+
+  const accountMenu = <AccountMenu
+    email={user?.email || 'บัญชีบริษัท'}
+    menuOpen={accountMenuOpen}
+    confirmOpen={signOutConfirmOpen}
+    onCloseMenu={() => setAccountMenuOpen(false)}
+    onRequestSignOut={requestSignOut}
+    onCancelSignOut={() => setSignOutConfirmOpen(false)}
+    onConfirmSignOut={confirmSignOut}
+  />;
+
   if (user === undefined) return <main className="login-shell"><p>กำลังตรวจสอบสิทธิ์…</p></main>;
   if (!user) return <Login onLogin={() => {}} />;
   const filteredAllHistory = historyFilter === 'all' ? allHistory : allHistory.filter((entry) => entry.kind === historyFilter);
@@ -214,7 +260,7 @@ function App() {
   if (view === 'history' && product) return <main className="app-shell history-page-shell">
     <header className="topbar history-page-topbar">
       <button className="back-button" onClick={() => setView('scan')}><Icon name="back" size={21}/><span>ย้อนกลับ</span></button>
-      <button className="icon-button" onClick={() => signOut(auth)} aria-label="ออกจากระบบ"><Icon name="close" /></button>
+      <button className="icon-button menu-button" type="button" onClick={() => setAccountMenuOpen(true)} aria-label="เมนูเพิ่มเติม" aria-haspopup="dialog" aria-expanded={accountMenuOpen}><Icon name="more" /></button>
     </header>
 
     <section className="history-page-intro" aria-labelledby="all-history-title">
@@ -252,6 +298,7 @@ function App() {
       <button onClick={() => setView('scan')}><Icon name="scan" size={21}/><span>สแกน</span></button>
       <button className="selected"><Icon name="list" size={21}/><span>รายการ</span></button>
     </nav>
+    {accountMenu}
   </main>;
   return <main className="app-shell">
     <header className="topbar">
@@ -259,7 +306,7 @@ function App() {
         <p className="eyebrow">คลังสินค้า</p>
         <h1>ตรวจสอบสต็อก</h1>
       </div>
-      <button className="icon-button" onClick={() => signOut(auth)} aria-label="ออกจากระบบ"><Icon name="close" /></button>
+      <button className="icon-button menu-button" type="button" onClick={() => setAccountMenuOpen(true)} aria-label="เมนูเพิ่มเติม" aria-haspopup="dialog" aria-expanded={accountMenuOpen}><Icon name="more" /></button>
     </header>
 
     <form className="scan-form" onSubmit={search}>
@@ -341,6 +388,7 @@ function App() {
       <button className="selected" onClick={() => setView('scan')}><Icon name="scan" size={21}/><span>สแกน</span></button>
       <button onClick={openAllHistory} disabled={!product}><Icon name="list" size={21}/><span>รายการ</span></button>
     </nav>
+    {accountMenu}
   </main>;
 }
 
