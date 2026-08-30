@@ -21,17 +21,11 @@ function formatDate(value) {
   return new Intl.DateTimeFormat('th-TH', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(value));
 }
 
-function formatTime(value) {
-  if (!value) return '';
-  return new Intl.DateTimeFormat('th-TH', { hour: '2-digit', minute: '2-digit' }).format(new Date(value));
-}
-
 function mapHistory(rows, kind) {
   return rows.map((row) => ({
     kind,
     timestamp: new Date(row.DI_DATE).getTime() || 0,
     date: formatDate(row.DI_DATE),
-    time: formatTime(row.DI_DATE),
     title: kind === 'receipt' ? (row.TRD_SH_REMARK || 'รับเข้า') : `${row.WL_CODE || 'ไม่ระบุต้นทาง'} → ${row.TRD_TO_WL || 'ไม่ระบุปลายทาง'}`,
     ref: row.DI_REF || 'ไม่ระบุเลขเอกสาร',
     location: kind === 'receipt' ? (row.TRD_TO_WL || row.WL_CODE || 'ไม่ระบุคลัง') : 'โอนย้าย',
@@ -337,7 +331,7 @@ function App() {
         {allHistoryLoading && <p className="history-status">กำลังอ่านประวัติทั้งหมด…</p>}
         {!allHistoryLoading && filteredAllHistory.length === 0 && <p className="history-status">ไม่พบประวัติ{historyFilter === 'all' ? '' : historyFilter === 'receipt' ? 'รับเข้า' : 'โอนย้าย'}ของสินค้านี้</p>}
         {!allHistoryLoading && filteredAllHistory.map((entry, index) => <article className="all-history-record" key={`${entry.kind}-${entry.ref}-${index}`}>
-          <time><strong>{entry.date}</strong><span>{entry.time ? `${entry.time} น.` : 'ไม่ระบุเวลา'}</span></time>
+          <time><strong>{entry.date}</strong></time>
           <div className="record-detail"><strong>{entry.title}</strong><span>{entry.ref} · {entry.location}</span>{entry.expiry && <span className="expiry-date">หมดอายุ: {entry.expiry}</span>}</div>
           <div className={`record-amount ${entry.kind}`}><span className={`history-kind ${entry.kind}`}>{entry.kind === 'receipt' ? 'รับเข้า' : 'โอนย้าย'}</span><strong>{entry.amount}</strong><span>{entry.unit}</span></div>
         </article>)}
@@ -441,7 +435,7 @@ function App() {
           {historyLoading && <p className="history-status">กำลังอ่านประวัติรายการ…</p>}
           {!historyLoading && records.length === 0 && <p className="history-status">ไม่พบประวัติ{activeProductPanel === 'receipt' ? 'รับเข้า' : 'โอนย้าย'}ของสินค้านี้</p>}
           {!historyLoading && records.map((entry, index) => <article className="record" key={`${entry.ref}-${index}`}>
-            <time><strong>{entry.date}</strong><span>{entry.time} น.</span></time>
+            <time><strong>{entry.date}</strong></time>
             <div className="record-detail"><strong>{entry.title}</strong><span>{entry.ref} · {entry.location}</span>{entry.expiry && <span className="expiry-date">หมดอายุ: {entry.expiry}</span>}</div>
             <div className={`record-amount ${activeProductPanel}`}><strong>{entry.amount}</strong><span>{entry.unit}</span></div>
           </article>)}
