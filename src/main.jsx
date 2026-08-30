@@ -34,7 +34,7 @@ function mapHistory(rows, kind) {
     time: formatTime(row.DI_DATE),
     title: kind === 'receipt' ? (row.TRD_SH_REMARK || 'รับเข้า') : `${row.WL_CODE || 'ไม่ระบุต้นทาง'} → ${row.TRD_TO_WL || 'ไม่ระบุปลายทาง'}`,
     ref: row.DI_REF || 'ไม่ระบุเลขเอกสาร',
-    location: kind === 'receipt' ? (row.WL_CODE || 'ไม่ระบุคลัง') : 'โอนย้าย',
+    location: kind === 'receipt' ? (row.TRD_TO_WL || row.WL_CODE || 'ไม่ระบุคลัง') : 'โอนย้าย',
     amount: Number(row.TRD_SH_QTY || 0).toLocaleString('th-TH'),
     unit: row.TRD_UTQNAME || '',
   }));
@@ -53,6 +53,7 @@ function Icon({ name, size = 24, stroke = 1.9 }) {
     more: <><circle cx="5" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1" fill="currentColor" stroke="none"/></>,
     logout: <><path d="M10 5H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h5"/><path d="m15 16 4-4-4-4M19 12H9"/></>,
     close: <><path d="m6 6 12 12M18 6 6 18"/></>,
+    pin: <><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></>,
   };
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }
@@ -125,6 +126,10 @@ function App() {
   const [view, setView] = useState('scan');
   const [activeProductPanel, setActiveProductPanel] = useState('stock');
   const [tab, setTab] = useState('receipt');
+  const [locations, setLocations] = useState([]);
+  const [selectedLocation, setSelectedLocation] = useState('');
+  const [locationPickerOpen, setLocationPickerOpen] = useState(false);
+  const [locationSearch, setLocationSearch] = useState('');
   const [records, setRecords] = useState([]);
   const [allHistory, setAllHistory] = useState([]);
   const [stockRows, setStockRows] = useState([]);
@@ -140,20 +145,23 @@ function App() {
   useEffect(() => onAuthStateChanged(auth, setUser), []);
   const totalStock = useMemo(() => stockRows.reduce((sum, row) => sum + Number(row.QTY || 0), 0), [stockRows]);
   const stockUnit = stockRows[0]?.UTQ_NAME || product?.scannedUnit || '';
+  const selectedLocationLabel = selectedLocation || 'ทุก Location';
 
   const formatQuantity = (value) => Number(value || 0).toLocaleString('th-TH', { maximumFractionDigits: 4 });
 
-  const fetchHistory = async (goodsKey, kind, limit = 20) => {
+  const fetchHistory = async (goodsKey, kind, limit = 20, locationCode = selectedLocation) => {
     const token = await auth.currentUser.getIdToken();
-    const response = await fetch(`/api/products/${goodsKey}/history/${kind === 'receipt' ? 'receipts' : 'transfers'}?limit=${limit}`, { headers: { Authorization: `Bearer ${token}` } });
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (locationCode) params.set('location', locationCode);
+    const response = await fetch(`/api/products/${goodsKey}/history/${kind === 'receipt' ? 'receipts' : 'transfers'}?${params}`, { headers: { Authorization: `Bearer ${token}` } });
     if (!response.ok) throw new Error('ไม่สามารถอ่านประวัติรายการได้');
     return mapHistory(await response.json(), kind);
   };
 
-  const loadHistory = async (goodsKey, kind) => {
+  const loadHistory = async (goodsKey, kind, locationCode = selectedLocation) => {
     setHistoryLoading(true);
     try {
-      setRecords(await fetchHistory(goodsKey, kind));
+      setRecords(await fetchHistory(goodsKey, kind, 20, locationCode));
     } catch (requestError) {
       setRecords([]);
       setError(requestError.message);
@@ -167,6 +175,31 @@ function App() {
     if (!product || panel === 'stock') return;
     setTab(panel);
     loadHistory(product.goodsKey, panel);
+  };
+
+  const loadLocations = async () => {
+    try {
+      const token = await auth.currentUser.getIdToken();
+      const response = await fetch('/api/locations', { headers: { Authorization: `Bearer ${token}` } });
+      if (!response.ok) throw new Error('ไม่สามารถอ่านรายการ Location ได้');
+      setLocations(await response.json());
+    } catch (requestError) { setError(requestError.message); }
+  };
+
+  const chooseLocation = async (locationCode) => {
+    setSelectedLocation(locationCode);
+    setLocationPickerOpen(false);
+    setLocationSearch('');
+    setAllHistory([]);
+    if (!product) {
+      requestAnimationFrame(() => inputRef.current?.focus());
+      return;
+    }
+    setError('');
+    await Promise.all([
+      loadStock(product.goodsKey, locationCode),
+      activeProductPanel === 'stock' ? Promise.resolve() : loadHistory(product.goodsKey, activeProductPanel, locationCode),
+    ]);
   };
 
   const openAllHistory = async () => {
@@ -189,10 +222,13 @@ function App() {
     }
   };
 
-  const loadStock = async (goodsKey) => {
+  const loadStock = async (goodsKey, locationCode = selectedLocation) => {
     setStockLoading(true);
     try {
-      const response = await auth.currentUser.getIdToken().then((token) => fetch(`/api/products/${goodsKey}/stock`, { headers: { Authorization: `Bearer ${token}` } }));
+      const params = new URLSearchParams();
+      if (locationCode) params.set('location', locationCode);
+      const suffix = params.toString() ? `?${params}` : '';
+      const response = await auth.currentUser.getIdToken().then((token) => fetch(`/api/products/${goodsKey}/stock${suffix}`, { headers: { Authorization: `Bearer ${token}` } }));
       if (!response.ok) throw new Error('ไม่สามารถอ่านยอดคงเหลือได้');
       setStockRows(await response.json());
     } catch (requestError) {
@@ -202,6 +238,10 @@ function App() {
       setStockLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (user) loadLocations();
+  }, [user]);
 
   const search = async (event) => {
     event.preventDefault();
@@ -263,6 +303,7 @@ function App() {
   if (user === undefined) return <main className="login-shell"><p>กำลังตรวจสอบสิทธิ์…</p></main>;
   if (!user) return <Login onLogin={() => {}} />;
   const filteredAllHistory = historyFilter === 'all' ? allHistory : allHistory.filter((entry) => entry.kind === historyFilter);
+  const matchingLocations = locations.filter((location) => location.toLowerCase().includes(locationSearch.trim().toLowerCase()));
   const receiptCount = allHistory.filter((entry) => entry.kind === 'receipt').length;
   const transferCount = allHistory.filter((entry) => entry.kind === 'transfer').length;
 
@@ -276,7 +317,7 @@ function App() {
       <p className="eyebrow">ประวัติสินค้า</p>
       <h1 id="all-history-title">ดูประวัติทั้งหมด</h1>
       <p>{product.name}</p>
-      <span>{product.sku} · {product.scannedUnit}</span>
+      <span>{product.sku} · {product.scannedUnit} · {selectedLocationLabel}</span>
     </section>
 
     {error && <p className="error-message" role="alert">{error}</p>}
@@ -328,6 +369,15 @@ function App() {
       <p className="hint">สแกนด้วยเครื่อง Handheld หรือกรอกรหัสสินค้าแทน</p>
     </form>
 
+    <section className="location-context" aria-label="Location ที่ใช้กรองข้อมูล">
+      <p>Location ที่ต้องการตรวจสอบ</p>
+      <button type="button" className="location-trigger" onClick={() => setLocationPickerOpen(true)} aria-haspopup="dialog" aria-expanded={locationPickerOpen}>
+        <span className="location-trigger-icon"><Icon name="pin" size={20}/></span>
+        <span><strong>{selectedLocationLabel}</strong><small>{selectedLocation ? 'กรองยอดคงเหลือ รับเข้า และโอนย้าย' : 'แสดงข้อมูลจากทุก Location'}</small></span>
+        <Icon name="chevron" size={19}/>
+      </button>
+    </section>
+
     {error && <p className="error-message" role="alert">{error}</p>}
 
     {!product && !loading && <section className="empty-state">
@@ -352,6 +402,8 @@ function App() {
         </div>
       </section>
 
+      <div className="result-location-context"><span>กำลังแสดงข้อมูลที่</span><strong>{selectedLocationLabel}</strong><button type="button" onClick={() => setLocationPickerOpen(true)}>เปลี่ยน</button></div>
+
       <div className="product-panel-switch" role="tablist" aria-label="เลือกข้อมูลสินค้า">
         <button className={activeProductPanel === 'stock' ? 'active stock' : ''} onClick={() => selectProductPanel('stock')} role="tab" aria-selected={activeProductPanel === 'stock'}>ตำแหน่งเก็บ</button>
         <button className={activeProductPanel === 'receipt' ? 'active receipt' : ''} onClick={() => selectProductPanel('receipt')} role="tab" aria-selected={activeProductPanel === 'receipt'}>รับเข้า</button>
@@ -364,7 +416,7 @@ function App() {
             <p className="eyebrow">ยอดคงเหลือแยกตาม Location</p>
             <h2 id="stock-title">{stockLoading ? '…' : formatQuantity(totalStock)} <span>{stockLoading ? '' : stockUnit}</span></h2>
           </div>
-          <p className="updated">ข้อมูลจากทุก<br/><strong>Location</strong></p>
+          <p className="updated">ข้อมูลจาก<br/><strong>{selectedLocationLabel}</strong></p>
         </div>
         <p className="conversion">หน่วยจากบาร์โค้ด: <strong>{product.scannedUnit}</strong> <span>•</span> 1 หน่วย = {Number(product.unitMultiplier || 1).toLocaleString('th-TH')} หน่วยย่อย</p>
         <div className="branch-list">
@@ -403,6 +455,18 @@ function App() {
       <button onClick={openAllHistory} disabled={!product}><Icon name="list" size={21}/><span>รายการ</span></button>
     </nav>
     {accountMenu}
+    {locationPickerOpen && <div className="sheet-backdrop" onClick={() => setLocationPickerOpen(false)}>
+      <section className="location-sheet" role="dialog" aria-modal="true" aria-labelledby="location-picker-title" onClick={(event) => event.stopPropagation()}>
+        <span className="sheet-handle" aria-hidden="true" />
+        <div className="location-sheet-heading"><div><p className="eyebrow">ตั้งค่าก่อนสแกน</p><h2 id="location-picker-title">เลือก Location</h2></div><button className="icon-button" type="button" onClick={() => setLocationPickerOpen(false)} aria-label="ปิด"><Icon name="close" size={20}/></button></div>
+        <label className="location-search"><Icon name="search" size={19}/><input value={locationSearch} onChange={(event) => setLocationSearch(event.target.value)} placeholder="ค้นหา Location" autoFocus /></label>
+        <button type="button" className={`location-option all ${!selectedLocation ? 'selected' : ''}`} onClick={() => chooseLocation('')}><span><strong>ทุก Location</strong><small>ไม่กรองตามตำแหน่งเก็บ</small></span>{!selectedLocation && <span className="location-check">เลือกอยู่</span>}</button>
+        <div className="location-option-list">
+          {matchingLocations.length === 0 && <p className="history-status">ไม่พบ Location ที่ค้นหา</p>}
+          {matchingLocations.map((location) => <button type="button" className={`location-option ${selectedLocation === location ? 'selected' : ''}`} key={location} onClick={() => chooseLocation(location)}><span><strong>{location}</strong><small>กรองข้อมูลเฉพาะ Location นี้</small></span>{selectedLocation === location && <span className="location-check">เลือกอยู่</span>}</button>)}
+        </div>
+      </section>
+    </div>}
   </main>;
 }
 

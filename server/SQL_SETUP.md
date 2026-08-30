@@ -32,6 +32,13 @@
 - Query โอนย้ายถูกเก็บที่ `server/queries/transfers.sql`
 - ประเภทเอกสารรับเข้าที่ใช้อยู่: `311, 312`
 - โอนย้ายใช้ฟิลด์ `DI_REF`, `DI_DATE`, `TRD_SH_QTY`, `TRD_UTQNAME`, `WL_CODE`, และ `TRD_TO_WL`
+
+## การกรองตาม Location
+
+- รายการ Location ดึงจาก `WARELOCATION.WL_CODE` ผ่าน `/api/locations`
+- ยอดคงเหลือกรองด้วย `WL_CODE`
+- รับเข้ากรองด้วย Location ปลายทาง `TRD_TO_WL`
+- โอนย้ายแสดงรายการเมื่อ Location ที่เลือกเป็นต้นทาง `WL_CODE` หรือปลายทาง `TRD_TO_WL`
 - ยอดโอนย้ายคำนวณจาก `TRANSTKD.TRD_QTY + TRANSTKD.TRD_Q_FREE`
 - ประเภทเอกสารโอนย้ายที่ใช้อยู่: `311, 312, 301, 303, 304, 336`
 

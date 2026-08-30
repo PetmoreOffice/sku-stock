@@ -85,6 +85,11 @@ function asGoodsKey(value) {
   return Number.isSafeInteger(goodsKey) && goodsKey > 0 ? goodsKey : null;
 }
 
+function asLocationCode(value) {
+  const locationCode = String(value || '').trim();
+  return locationCode && locationCode.length <= 50 ? locationCode : null;
+}
+
 app.get('/api/health', async (_req, res) => {
   try {
     await poolReady;
@@ -121,16 +126,25 @@ app.get('/api/products/scan/:scanValue', requireAuth, async (req, res, next) => 
   } catch (error) { next(error); }
 });
 
+app.get('/api/locations', requireAuth, async (_req, res, next) => {
+  try {
+    const sql = await queryFile('locations.sql');
+    const result = await (await poolReady).request().query(sql);
+    res.json(result.recordset.map((row) => row.WL_CODE));
+  } catch (error) { next(error); }
+});
+
 app.get('/api/products/:goodsKey/stock', requireAuth, async (req, res, next) => {
   try {
     const goodsKey = asGoodsKey(req.params.goodsKey);
     if (!goodsKey) return res.status(400).json({ message: 'รหัสสินค้าไม่ถูกต้อง' });
 
     const sql = await queryFile('stock-by-location.sql');
+    const locationCode = asLocationCode(req.query.location);
     const result = await (await poolReady)
       .request()
       .input('goodsKey', mssql.Int, goodsKey)
-      .input('historyLimit', mssql.Int, 20)
+      .input('locationCode', mssql.NVarChar(50), locationCode)
       .query(sql);
     res.json(result.recordset);
   } catch (error) { next(error); }
@@ -140,6 +154,7 @@ app.get('/api/products/:goodsKey/history/:kind', requireAuth, async (req, res, n
   try {
     const goodsKey = asGoodsKey(req.params.goodsKey);
     const file = req.params.kind === 'receipts' ? 'receipts.sql' : req.params.kind === 'transfers' ? 'transfers.sql' : null;
+    const locationCode = asLocationCode(req.query.location);
     const requestedLimit = Number(req.query.limit);
     const historyLimit = Number.isFinite(requestedLimit)
       ? Math.min(Math.max(Math.floor(requestedLimit), 1), 1000)
@@ -151,6 +166,7 @@ app.get('/api/products/:goodsKey/history/:kind', requireAuth, async (req, res, n
       .request()
       .input('goodsKey', mssql.Int, goodsKey)
       .input('historyLimit', mssql.Int, historyLimit)
+      .input('locationCode', mssql.NVarChar(50), locationCode)
       .query(sql);
     res.json(result.recordset);
   } catch (error) { next(error); }
