@@ -99,9 +99,9 @@ function Login({ onLogin }) {
     <section className="login-hero">
       <div className="login-brand"><span className="login-brand-mark"><Icon name="scan" size={25} /></span><span>SKU STOCK</span></div>
       <div className="control-grid" aria-hidden="true"><i/><i/><i/><i/><i/><i/></div>
-      <div className="login-hero-copy"><p className="login-kicker">WAREHOUSE STOCK LOOKUP SYSTEM</p>
+      <div className="login-hero-copy"><p className="login-kicker">WAREHOUSE STOCK SYSTEM</p>
         <h1>SKU<br/><em>STOCK</em></h1>
-        <p>ตรวจสอบสต็อกสินค้า<br/>รวดเร็ว · แม่นยำ · อ่านอย่างเดียว</p>
+        <p>ตรวจสอบสต็อกสินค้า<br/>รวดเร็ว · แม่นยำ</p>
       </div>
       <div className="control-status"><span className="status-dot"/> ระบบพร้อมใช้งาน <b>READ-ONLY</b></div>
     </section>
