@@ -118,7 +118,7 @@ function App() {
   const [user, setUser] = useState(undefined);
   const [query, setQuery] = useState('');
   const [product, setProduct] = useState(null);
-  const [view, setView] = useState('scan');
+  const [view, setView] = useState('home');
   const [activeProductPanel, setActiveProductPanel] = useState('stock');
   const [tab, setTab] = useState('receipt');
   const [locations, setLocations] = useState([]);
@@ -268,15 +268,28 @@ function App() {
     }
   };
 
-  const reset = () => {
+  const clearLookup = (nextView) => {
     setQuery('');
     setProduct(null);
     setRecords([]);
     setAllHistory([]);
-    setView('scan');
+    setView(nextView);
     setActiveProductPanel('stock');
     setStockRows([]);
     setError('');
+  };
+
+  const reset = () => {
+    clearLookup('scan');
+    requestAnimationFrame(() => inputRef.current?.focus());
+  };
+
+  const goHome = () => {
+    clearLookup('home');
+  };
+
+  const goToScan = () => {
+    setView('scan');
     requestAnimationFrame(() => inputRef.current?.focus());
   };
 
@@ -306,6 +319,53 @@ function App() {
   const matchingLocations = locations.filter((location) => location.toLowerCase().includes(locationSearch.trim().toLowerCase()));
   const receiptCount = allHistory.filter((entry) => entry.kind === 'receipt').length;
   const transferCount = allHistory.filter((entry) => entry.kind === 'transfer').length;
+  const locationPicker = locationPickerOpen && <div className="sheet-backdrop" onClick={() => setLocationPickerOpen(false)}>
+    <section className="location-sheet" role="dialog" aria-modal="true" aria-labelledby="location-picker-title" onClick={(event) => event.stopPropagation()}>
+      <span className="sheet-handle" aria-hidden="true" />
+      <div className="location-sheet-heading"><div><p className="eyebrow">ตั้งค่าก่อนสแกน</p><h2 id="location-picker-title">เลือก Location</h2></div><button className="icon-button" type="button" onClick={() => setLocationPickerOpen(false)} aria-label="ปิด"><Icon name="close" size={20}/></button></div>
+      <label className="location-search"><Icon name="search" size={19}/><input value={locationSearch} onChange={(event) => setLocationSearch(event.target.value)} placeholder="ค้นหา Location" autoFocus /></label>
+      <button type="button" className={`location-option all ${!selectedLocation ? 'selected' : ''}`} onClick={() => chooseLocation('')}><span><strong>ทุก Location</strong><small>ไม่กรองตามตำแหน่งเก็บ</small></span>{!selectedLocation && <span className="location-check">เลือกอยู่</span>}</button>
+      <div className="location-option-list">
+        {matchingLocations.length === 0 && <p className="history-status">ไม่พบ Location ที่ค้นหา</p>}
+        {matchingLocations.map((location) => <button type="button" className={`location-option ${selectedLocation === location ? 'selected' : ''}`} key={location} onClick={() => chooseLocation(location)}><span><strong>{location}</strong><small>กรองข้อมูลเฉพาะ Location นี้</small></span>{selectedLocation === location && <span className="location-check">เลือกอยู่</span>}</button>)}
+      </div>
+    </section>
+  </div>;
+
+  if (view === 'home') return <main className="app-shell home-page-shell">
+    <header className="topbar home-topbar">
+      <div><p className="eyebrow">คลังสินค้า</p><h1>เริ่มตรวจสอบ</h1></div>
+      <button className="icon-button menu-button" type="button" onClick={() => setAccountMenuOpen(true)} aria-label="เมนูเพิ่มเติม" aria-haspopup="dialog" aria-expanded={accountMenuOpen}><Icon name="more" /></button>
+    </header>
+
+    <section className="home-location" aria-label="Location ที่ใช้กรองข้อมูล">
+      <p>Location ที่กำลังใช้งาน</p>
+      <button type="button" className="location-trigger" onClick={() => setLocationPickerOpen(true)} aria-haspopup="dialog" aria-expanded={locationPickerOpen}>
+        <span className="location-trigger-icon"><Icon name="pin" size={20}/></span>
+        <span><strong>{selectedLocationLabel}</strong><small>{selectedLocation ? 'กรองข้อมูลสำหรับการสแกนครั้งถัดไป' : 'แสดงข้อมูลจากทุก Location'}</small></span>
+        <Icon name="chevron" size={19}/>
+      </button>
+    </section>
+
+    <section className="home-scan-start" aria-labelledby="start-scan-title">
+      <div className="home-scan-icon"><Icon name="scan" size={35}/></div>
+      <p className="eyebrow">งานหลัก</p>
+      <h2 id="start-scan-title">เริ่มสแกนสินค้า</h2>
+      <p>เลือก Location แล้วแตะปุ่มด้านล่าง จากนั้นยิงบาร์โค้ดได้ทันที</p>
+      <button type="button" onClick={goToScan}>ไปหน้าสแกน <Icon name="chevron" size={20}/></button>
+    </section>
+
+    <button type="button" className="home-search-link" onClick={goToScan}><Icon name="search" size={21}/><span><strong>ค้นหาด้วย SKU หรือบาร์โค้ด</strong><small>ใช้เมื่อสแกนเนอร์ไม่พร้อมใช้งาน</small></span><Icon name="chevron" size={19}/></button>
+    <p className="home-readonly"><span /> ระบบสำหรับดูข้อมูลเท่านั้น</p>
+
+    <nav className="bottom-nav" aria-label="เมนูหลัก">
+      <button className="selected"><Icon name="home" size={21}/><span>หน้าหลัก</span></button>
+      <button onClick={goToScan}><Icon name="scan" size={21}/><span>สแกน</span></button>
+      <button onClick={openAllHistory} disabled={!product}><Icon name="list" size={21}/><span>รายการ</span></button>
+    </nav>
+    {accountMenu}
+    {locationPicker}
+  </main>;
 
   if (view === 'history' && product) return <main className="app-shell history-page-shell">
     <header className="topbar history-page-topbar">
@@ -344,8 +404,8 @@ function App() {
     </section>
 
     <nav className="bottom-nav" aria-label="เมนูหลัก">
-      <button onClick={reset}><Icon name="home" size={21}/><span>หน้าหลัก</span></button>
-      <button onClick={() => setView('scan')}><Icon name="scan" size={21}/><span>สแกน</span></button>
+      <button onClick={goHome}><Icon name="home" size={21}/><span>หน้าหลัก</span></button>
+      <button onClick={goToScan}><Icon name="scan" size={21}/><span>สแกน</span></button>
       <button className="selected"><Icon name="list" size={21}/><span>รายการ</span></button>
     </nav>
     {accountMenu}
@@ -448,23 +508,12 @@ function App() {
     </>}
 
     <nav className="bottom-nav" aria-label="เมนูหลัก">
-      <button onClick={reset}><Icon name="home" size={21}/><span>หน้าหลัก</span></button>
-      <button className="selected" onClick={() => setView('scan')}><Icon name="scan" size={21}/><span>สแกน</span></button>
+      <button onClick={goHome}><Icon name="home" size={21}/><span>หน้าหลัก</span></button>
+      <button className="selected" onClick={goToScan}><Icon name="scan" size={21}/><span>สแกน</span></button>
       <button onClick={openAllHistory} disabled={!product}><Icon name="list" size={21}/><span>รายการ</span></button>
     </nav>
     {accountMenu}
-    {locationPickerOpen && <div className="sheet-backdrop" onClick={() => setLocationPickerOpen(false)}>
-      <section className="location-sheet" role="dialog" aria-modal="true" aria-labelledby="location-picker-title" onClick={(event) => event.stopPropagation()}>
-        <span className="sheet-handle" aria-hidden="true" />
-        <div className="location-sheet-heading"><div><p className="eyebrow">ตั้งค่าก่อนสแกน</p><h2 id="location-picker-title">เลือก Location</h2></div><button className="icon-button" type="button" onClick={() => setLocationPickerOpen(false)} aria-label="ปิด"><Icon name="close" size={20}/></button></div>
-        <label className="location-search"><Icon name="search" size={19}/><input value={locationSearch} onChange={(event) => setLocationSearch(event.target.value)} placeholder="ค้นหา Location" autoFocus /></label>
-        <button type="button" className={`location-option all ${!selectedLocation ? 'selected' : ''}`} onClick={() => chooseLocation('')}><span><strong>ทุก Location</strong><small>ไม่กรองตามตำแหน่งเก็บ</small></span>{!selectedLocation && <span className="location-check">เลือกอยู่</span>}</button>
-        <div className="location-option-list">
-          {matchingLocations.length === 0 && <p className="history-status">ไม่พบ Location ที่ค้นหา</p>}
-          {matchingLocations.map((location) => <button type="button" className={`location-option ${selectedLocation === location ? 'selected' : ''}`} key={location} onClick={() => chooseLocation(location)}><span><strong>{location}</strong><small>กรองข้อมูลเฉพาะ Location นี้</small></span>{selectedLocation === location && <span className="location-check">เลือกอยู่</span>}</button>)}
-        </div>
-      </section>
-    </div>}
+    {locationPicker}
   </main>;
 }
 
