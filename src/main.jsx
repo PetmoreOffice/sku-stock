@@ -402,8 +402,6 @@ function App() {
         </div>
       </section>
 
-      <div className="result-location-context"><span>กำลังแสดงข้อมูลที่</span><strong>{selectedLocationLabel}</strong><button type="button" onClick={() => setLocationPickerOpen(true)}>เปลี่ยน</button></div>
-
       <div className="product-panel-switch" role="tablist" aria-label="เลือกข้อมูลสินค้า">
         <button className={activeProductPanel === 'stock' ? 'active stock' : ''} onClick={() => selectProductPanel('stock')} role="tab" aria-selected={activeProductPanel === 'stock'}>ตำแหน่งเก็บ</button>
         <button className={activeProductPanel === 'receipt' ? 'active receipt' : ''} onClick={() => selectProductPanel('receipt')} role="tab" aria-selected={activeProductPanel === 'receipt'}>รับเข้า</button>
