@@ -242,8 +242,7 @@ function App() {
         {!allHistoryLoading && filteredAllHistory.map((entry, index) => <article className="all-history-record" key={`${entry.kind}-${entry.ref}-${index}`}>
           <time><strong>{entry.date}</strong><span>{entry.time ? `${entry.time} น.` : 'ไม่ระบุเวลา'}</span></time>
           <div className="record-detail"><strong>{entry.title}</strong><span>{entry.ref} · {entry.location}</span></div>
-          <div className={`record-amount ${entry.kind}`}><strong>{entry.amount}</strong><span>{entry.unit}</span></div>
-          <span className={`history-kind ${entry.kind}`}>{entry.kind === 'receipt' ? 'รับเข้า' : 'โอนย้าย'}</span>
+          <div className={`record-amount ${entry.kind}`}><span className={`history-kind ${entry.kind}`}>{entry.kind === 'receipt' ? 'รับเข้า' : 'โอนย้าย'}</span><strong>{entry.amount}</strong><span>{entry.unit}</span></div>
         </article>)}
       </div>
     </section>

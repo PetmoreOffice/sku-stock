@@ -73,15 +73,16 @@ h1, h2, p { margin-top: 0; } h1 { margin-bottom: 0; font-size: 28px; letter-spac
 .history-filter button.active.receipt { color: #087451; }
 .history-filter button.active.transfer { color: #0869d5; }
 .all-history-records { border-top: 1px solid #e7edf3; }
-.all-history-record { position: relative; display: grid; grid-template-columns: 72px minmax(0, 1fr) auto; gap: 8px; align-items: center; min-height: 75px; padding: 11px 18px; border-bottom: 1px solid #e7edf3; }
+.all-history-record { display: grid; grid-template-columns: 72px minmax(0, 1fr) auto; gap: 8px; align-items: center; min-height: 75px; padding: 11px 18px; border-bottom: 1px solid #e7edf3; }
 .all-history-record:last-child { border-bottom: 0; }
 .all-history-record time { color: #64748b; font-size: 10px; line-height: 1.35; }
 .all-history-record time strong, .all-history-record time span { display: block; }
 .all-history-record time strong { color: #475569; font-size: 11px; }
-.history-kind { position: absolute; top: 7px; right: 18px; padding: 2px 5px; border-radius: 5px; font-size: 9px; font-weight: 800; }
+.all-history-record .record-amount { display: grid; justify-items: end; min-width: 68px; }
+.history-kind { display: inline-block; margin-bottom: 3px; padding: 2px 5px; border-radius: 5px; font-size: 9px; font-weight: 800; line-height: 1.2; }
 .history-kind.receipt { color: #087451; background: #edfcf5; }
 .history-kind.transfer { color: #0869d5; background: #eef6ff; }
-@media (max-width: 390px) { .history-summary { padding-right: 14px; padding-left: 14px; }.all-history-record { grid-template-columns: 62px minmax(0, 1fr) auto; padding-right: 14px; padding-left: 14px; }.history-kind { right: 14px; }.history-page-intro h1 { font-size: 25px; } }
+@media (max-width: 390px) { .history-summary { padding-right: 14px; padding-left: 14px; }.all-history-record { grid-template-columns: 62px minmax(0, 1fr) auto; padding-right: 14px; padding-left: 14px; }.history-page-intro h1 { font-size: 25px; } }
 @media (max-width: 390px) { .app-shell { padding-right: 12px; padding-left: 12px; }.product-card { gap: 10px; padding: 14px; }.product-symbol { width: 50px; height: 50px; }.product-main h2 { font-size: 16px; }.unit-block { min-width: 68px; }.stock-section { padding: 14px; }.record { grid-template-columns: 63px 1fr auto; padding-right: 14px; padding-left: 14px; } }
 
 /* Type system: stable Thai reading rhythm and aligned operational numbers. */
