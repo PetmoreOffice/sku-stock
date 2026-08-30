@@ -123,6 +123,7 @@ function App() {
   const [query, setQuery] = useState('');
   const [product, setProduct] = useState(null);
   const [view, setView] = useState('scan');
+  const [activeProductPanel, setActiveProductPanel] = useState('stock');
   const [tab, setTab] = useState('receipt');
   const [records, setRecords] = useState([]);
   const [allHistory, setAllHistory] = useState([]);
@@ -159,6 +160,13 @@ function App() {
     } finally {
       setHistoryLoading(false);
     }
+  };
+
+  const selectProductPanel = (panel) => {
+    setActiveProductPanel(panel);
+    if (!product || panel === 'stock') return;
+    setTab(panel);
+    loadHistory(product.goodsKey, panel);
   };
 
   const openAllHistory = async () => {
@@ -208,6 +216,7 @@ function App() {
       if (!response.ok) throw new Error(data.message || 'ไม่สามารถค้นหาสินค้าได้');
       setProduct(data);
       setView('scan');
+      setActiveProductPanel('stock');
       setTab('receipt');
       await Promise.all([loadHistory(data.goodsKey, 'receipt'), loadStock(data.goodsKey)]);
     } catch (requestError) {
@@ -225,6 +234,7 @@ function App() {
     setRecords([]);
     setAllHistory([]);
     setView('scan');
+    setActiveProductPanel('stock');
     setStockRows([]);
     setError('');
     requestAnimationFrame(() => inputRef.current?.focus());
@@ -342,7 +352,13 @@ function App() {
         </div>
       </section>
 
-      <section className="stock-section" aria-labelledby="stock-title">
+      <div className="product-panel-switch" role="tablist" aria-label="เลือกข้อมูลสินค้า">
+        <button className={activeProductPanel === 'stock' ? 'active stock' : ''} onClick={() => selectProductPanel('stock')} role="tab" aria-selected={activeProductPanel === 'stock'}>ตำแหน่งเก็บ</button>
+        <button className={activeProductPanel === 'receipt' ? 'active receipt' : ''} onClick={() => selectProductPanel('receipt')} role="tab" aria-selected={activeProductPanel === 'receipt'}>รับเข้า</button>
+        <button className={activeProductPanel === 'transfer' ? 'active transfer' : ''} onClick={() => selectProductPanel('transfer')} role="tab" aria-selected={activeProductPanel === 'transfer'}>โอนย้าย</button>
+      </div>
+
+      {activeProductPanel === 'stock' && <section className="stock-section" aria-labelledby="stock-title">
         <div className="section-heading">
           <div>
             <p className="eyebrow">ยอดคงเหลือแยกตาม Location</p>
@@ -361,25 +377,24 @@ function App() {
             <Icon name="chevron" size={19} stroke={1.7} />
           </article>)}
         </div>
-      </section>
+      </section>}
 
-      <section className="history-section" aria-labelledby="history-title">
-        <div className="history-heading"><h2 id="history-title">รายการล่าสุด</h2><span>ข้อมูลจากระบบคลัง</span></div>
-        <div className="tabs" role="tablist" aria-label="เลือกประเภทประวัติ">
-          <button className={tab === 'receipt' ? 'active receipt' : ''} onClick={() => { setTab('receipt'); loadHistory(product.goodsKey, 'receipt'); }} role="tab" aria-selected={tab === 'receipt'}>รับเข้า</button>
-          <button className={tab === 'transfer' ? 'active transfer' : ''} onClick={() => { setTab('transfer'); loadHistory(product.goodsKey, 'transfer'); }} role="tab" aria-selected={tab === 'transfer'}>โอนย้าย</button>
+      {activeProductPanel !== 'stock' && <section className="history-section" aria-labelledby="history-title">
+        <div className="history-heading">
+          <div><p className="eyebrow">ข้อมูลจากระบบคลัง</p><h2 id="history-title">{activeProductPanel === 'receipt' ? 'รายการรับเข้า' : 'รายการโอนย้าย'}</h2></div>
+          <span>{activeProductPanel === 'receipt' ? 'รับเข้า' : 'โอนย้าย'}</span>
         </div>
         <div className="records">
           {historyLoading && <p className="history-status">กำลังอ่านประวัติรายการ…</p>}
-          {!historyLoading && records.length === 0 && <p className="history-status">ไม่พบประวัติ{tab === 'receipt' ? 'รับเข้า' : 'โอนย้าย'}ของสินค้านี้</p>}
+          {!historyLoading && records.length === 0 && <p className="history-status">ไม่พบประวัติ{activeProductPanel === 'receipt' ? 'รับเข้า' : 'โอนย้าย'}ของสินค้านี้</p>}
           {!historyLoading && records.map((entry, index) => <article className="record" key={`${entry.ref}-${index}`}>
             <time><strong>{entry.date}</strong><span>{entry.time} น.</span></time>
             <div className="record-detail"><strong>{entry.title}</strong><span>{entry.ref} · {entry.location}</span></div>
-            <div className={`record-amount ${tab}`}><strong>{entry.amount}</strong><span>{entry.unit}</span></div>
+            <div className={`record-amount ${activeProductPanel}`}><strong>{entry.amount}</strong><span>{entry.unit}</span></div>
           </article>)}
         </div>
         <button className="all-history" onClick={openAllHistory}>ดูประวัติทั้งหมด <Icon name="chevron" size={18} /></button>
-      </section>
+      </section>}
     </>}
 
     <nav className="bottom-nav" aria-label="เมนูหลัก">
