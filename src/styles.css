@@ -52,6 +52,36 @@ h1, h2, p { margin-top: 0; } h1 { margin-bottom: 0; font-size: 28px; letter-spac
 .empty-state { padding: 44px 28px; border: 1px dashed #cbd5e1; border-radius: 16px; color: #64748b; background: #fff; text-align: center; }.empty-icon { display: grid; place-items: center; width: 56px; height: 56px; margin: 0 auto 14px; color: #0b75e8; background: #eff6ff; border-radius: 50%; }.empty-state h2 { margin-bottom: 7px; color: #334155; font-size: 18px; }.empty-state p { margin: 0; font-size: 13px; line-height: 1.65; }
 .empty-icon.loading svg { animation: pulse 1s ease-in-out infinite; } @keyframes pulse { 50% { opacity: .35; transform: scale(.9); } }
 .bottom-nav { position: fixed; right: 0; bottom: 0; left: 0; z-index: 5; display: grid; grid-template-columns: repeat(3, 1fr); width: min(100%, 560px); margin: auto; padding: 8px max(16px, env(safe-area-inset-left)) calc(8px + env(safe-area-inset-bottom)); border-top: 1px solid #e2e8f0; background: rgba(255, 255, 255, .96); backdrop-filter: blur(10px); }.bottom-nav button { display: grid; justify-items: center; gap: 3px; border: 0; color: #64748b; background: transparent; font-size: 10px; }.bottom-nav button.selected { color: #0b75e8; font-weight: 800; }
+.bottom-nav button:disabled { opacity: .38; cursor: not-allowed; }
+.history-page-shell { padding-bottom: 104px; }
+.history-page-topbar { margin-bottom: 16px; }
+.back-button { display: inline-flex; align-items: center; gap: 4px; min-height: 42px; padding: 0 2px; border: 0; color: #334155; background: transparent; font-weight: 700; }
+.history-page-intro { padding: 4px 2px 20px; }
+.history-page-intro h1 { margin-bottom: 8px; font-size: 27px; }
+.history-page-intro p { margin-bottom: 4px; color: #334155; font-size: 15px; font-weight: 700; line-height: 1.4; }
+.history-page-intro > span { color: #64748b; font-size: 12px; }
+.all-history-panel { overflow: hidden; border: 1px solid #dde5ee; border-radius: 16px; background: #fff; }
+.history-summary { display: flex; align-items: end; justify-content: space-between; gap: 12px; padding: 18px 18px 14px; }
+.history-summary div { display: grid; gap: 1px; }
+.history-summary strong { color: #142033; font-size: 27px; line-height: 1; font-variant-numeric: tabular-nums; }
+.history-summary span, .history-summary p { color: #64748b; font-size: 11px; line-height: 1.4; }
+.history-summary p { max-width: 160px; margin: 0; text-align: right; }
+.history-filter { display: grid; grid-template-columns: 1.1fr 1fr 1fr; margin: 0 14px 10px; padding: 4px; border: 1px solid #d7e1ec; border-radius: 12px; background: #f8fafc; }
+.history-filter button { min-height: 36px; border: 0; border-radius: 8px; color: #64748b; background: transparent; font-size: 12px; font-weight: 800; }
+.history-filter button span { margin-left: 2px; color: #94a3b8; font-size: 10px; }
+.history-filter button.active { color: #142033; background: #fff; box-shadow: 0 2px 7px rgba(15, 23, 42, .09); }
+.history-filter button.active.receipt { color: #087451; }
+.history-filter button.active.transfer { color: #0869d5; }
+.all-history-records { border-top: 1px solid #e7edf3; }
+.all-history-record { position: relative; display: grid; grid-template-columns: 72px minmax(0, 1fr) auto; gap: 8px; align-items: center; min-height: 75px; padding: 11px 18px; border-bottom: 1px solid #e7edf3; }
+.all-history-record:last-child { border-bottom: 0; }
+.all-history-record time { color: #64748b; font-size: 10px; line-height: 1.35; }
+.all-history-record time strong, .all-history-record time span { display: block; }
+.all-history-record time strong { color: #475569; font-size: 11px; }
+.history-kind { position: absolute; top: 7px; right: 18px; padding: 2px 5px; border-radius: 5px; font-size: 9px; font-weight: 800; }
+.history-kind.receipt { color: #087451; background: #edfcf5; }
+.history-kind.transfer { color: #0869d5; background: #eef6ff; }
+@media (max-width: 390px) { .history-summary { padding-right: 14px; padding-left: 14px; }.all-history-record { grid-template-columns: 62px minmax(0, 1fr) auto; padding-right: 14px; padding-left: 14px; }.history-kind { right: 14px; }.history-page-intro h1 { font-size: 25px; } }
 @media (max-width: 390px) { .app-shell { padding-right: 12px; padding-left: 12px; }.product-card { gap: 10px; padding: 14px; }.product-symbol { width: 50px; height: 50px; }.product-main h2 { font-size: 16px; }.unit-block { min-width: 68px; }.stock-section { padding: 14px; }.record { grid-template-columns: 63px 1fr auto; padding-right: 14px; padding-left: 14px; } }
 
 /* Type system: stable Thai reading rhythm and aligned operational numbers. */

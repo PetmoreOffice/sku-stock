@@ -140,13 +140,17 @@ app.get('/api/products/:goodsKey/history/:kind', requireAuth, async (req, res, n
   try {
     const goodsKey = asGoodsKey(req.params.goodsKey);
     const file = req.params.kind === 'receipts' ? 'receipts.sql' : req.params.kind === 'transfers' ? 'transfers.sql' : null;
+    const requestedLimit = Number(req.query.limit);
+    const historyLimit = Number.isFinite(requestedLimit)
+      ? Math.min(Math.max(Math.floor(requestedLimit), 1), 1000)
+      : 20;
     if (!goodsKey || !file) return res.status(400).json({ message: 'คำขอไม่ถูกต้อง' });
 
     const sql = await queryFile(file);
     const result = await (await poolReady)
       .request()
       .input('goodsKey', mssql.Int, goodsKey)
-      .input('historyLimit', mssql.Int, 20)
+      .input('historyLimit', mssql.Int, historyLimit)
       .query(sql);
     res.json(result.recordset);
   } catch (error) { next(error); }

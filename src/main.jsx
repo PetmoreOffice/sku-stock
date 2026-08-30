@@ -28,6 +28,8 @@ function formatTime(value) {
 
 function mapHistory(rows, kind) {
   return rows.map((row) => ({
+    kind,
+    timestamp: new Date(row.DI_DATE).getTime() || 0,
     date: formatDate(row.DI_DATE),
     time: formatTime(row.DI_DATE),
     title: kind === 'receipt' ? (row.TRD_SH_REMARK || 'รับเข้า') : `${row.WL_CODE || 'ไม่ระบุต้นทาง'} → ${row.TRD_TO_WL || 'ไม่ระบุปลายทาง'}`,
@@ -47,6 +49,7 @@ function Icon({ name, size = 24, stroke = 1.9 }) {
     list: <><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></>,
     home: <><path d="m3 10 9-7 9 7v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9Z"/><path d="M9 21v-7h6v7"/></>,
     chevron: <path d="m9 18 6-6-6-6"/>,
+    back: <path d="m15 18-6-6 6-6"/>,
     close: <><path d="m6 6 12 12M18 6 6 18"/></>,
   };
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
@@ -96,11 +99,15 @@ function App() {
   const [user, setUser] = useState(undefined);
   const [query, setQuery] = useState('');
   const [product, setProduct] = useState(null);
+  const [view, setView] = useState('scan');
   const [tab, setTab] = useState('receipt');
   const [records, setRecords] = useState([]);
+  const [allHistory, setAllHistory] = useState([]);
   const [stockRows, setStockRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [allHistoryLoading, setAllHistoryLoading] = useState(false);
+  const [historyFilter, setHistoryFilter] = useState('all');
   const [stockLoading, setStockLoading] = useState(false);
   const [error, setError] = useState('');
   const inputRef = useRef(null);
@@ -110,17 +117,42 @@ function App() {
 
   const formatQuantity = (value) => Number(value || 0).toLocaleString('th-TH', { maximumFractionDigits: 4 });
 
+  const fetchHistory = async (goodsKey, kind, limit = 20) => {
+    const token = await auth.currentUser.getIdToken();
+    const response = await fetch(`/api/products/${goodsKey}/history/${kind === 'receipt' ? 'receipts' : 'transfers'}?limit=${limit}`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!response.ok) throw new Error('ไม่สามารถอ่านประวัติรายการได้');
+    return mapHistory(await response.json(), kind);
+  };
+
   const loadHistory = async (goodsKey, kind) => {
     setHistoryLoading(true);
     try {
-      const response = await auth.currentUser.getIdToken().then((token) => fetch(`/api/products/${goodsKey}/history/${kind === 'receipt' ? 'receipts' : 'transfers'}`, { headers: { Authorization: `Bearer ${token}` } }));
-      if (!response.ok) throw new Error('ไม่สามารถอ่านประวัติรายการได้');
-      setRecords(mapHistory(await response.json(), kind));
+      setRecords(await fetchHistory(goodsKey, kind));
     } catch (requestError) {
       setRecords([]);
       setError(requestError.message);
     } finally {
       setHistoryLoading(false);
+    }
+  };
+
+  const openAllHistory = async () => {
+    if (!product) return;
+    setView('history');
+    setHistoryFilter('all');
+    setAllHistoryLoading(true);
+    setError('');
+    try {
+      const [receipts, transfers] = await Promise.all([
+        fetchHistory(product.goodsKey, 'receipt', 1000),
+        fetchHistory(product.goodsKey, 'transfer', 1000),
+      ]);
+      setAllHistory([...receipts, ...transfers].sort((a, b) => b.timestamp - a.timestamp));
+    } catch (requestError) {
+      setAllHistory([]);
+      setError(requestError.message);
+    } finally {
+      setAllHistoryLoading(false);
     }
   };
 
@@ -150,6 +182,7 @@ function App() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || 'ไม่สามารถค้นหาสินค้าได้');
       setProduct(data);
+      setView('scan');
       setTab('receipt');
       await Promise.all([loadHistory(data.goodsKey, 'receipt'), loadStock(data.goodsKey)]);
     } catch (requestError) {
@@ -165,6 +198,8 @@ function App() {
     setQuery('');
     setProduct(null);
     setRecords([]);
+    setAllHistory([]);
+    setView('scan');
     setStockRows([]);
     setError('');
     requestAnimationFrame(() => inputRef.current?.focus());
@@ -172,6 +207,53 @@ function App() {
 
   if (user === undefined) return <main className="login-shell"><p>กำลังตรวจสอบสิทธิ์…</p></main>;
   if (!user) return <Login onLogin={() => {}} />;
+  const filteredAllHistory = historyFilter === 'all' ? allHistory : allHistory.filter((entry) => entry.kind === historyFilter);
+  const receiptCount = allHistory.filter((entry) => entry.kind === 'receipt').length;
+  const transferCount = allHistory.filter((entry) => entry.kind === 'transfer').length;
+
+  if (view === 'history' && product) return <main className="app-shell history-page-shell">
+    <header className="topbar history-page-topbar">
+      <button className="back-button" onClick={() => setView('scan')}><Icon name="back" size={21}/><span>ย้อนกลับ</span></button>
+      <button className="icon-button" onClick={() => signOut(auth)} aria-label="ออกจากระบบ"><Icon name="close" /></button>
+    </header>
+
+    <section className="history-page-intro" aria-labelledby="all-history-title">
+      <p className="eyebrow">ประวัติสินค้า</p>
+      <h1 id="all-history-title">ดูประวัติทั้งหมด</h1>
+      <p>{product.name}</p>
+      <span>{product.sku} · {product.scannedUnit}</span>
+    </section>
+
+    {error && <p className="error-message" role="alert">{error}</p>}
+
+    <section className="all-history-panel" aria-label="ประวัติรับเข้าและโอนย้าย">
+      <div className="history-summary">
+        <div><strong>{allHistory.length.toLocaleString('th-TH')}</strong><span>รายการทั้งหมด</span></div>
+        <p>แสดงได้สูงสุด 1,000 รายการต่อประเภท</p>
+      </div>
+      <div className="history-filter" role="tablist" aria-label="กรองประวัติสินค้า">
+        <button className={historyFilter === 'all' ? 'active all' : ''} onClick={() => setHistoryFilter('all')} role="tab" aria-selected={historyFilter === 'all'}>ทั้งหมด <span>{allHistory.length}</span></button>
+        <button className={historyFilter === 'receipt' ? 'active receipt' : ''} onClick={() => setHistoryFilter('receipt')} role="tab" aria-selected={historyFilter === 'receipt'}>รับเข้า <span>{receiptCount}</span></button>
+        <button className={historyFilter === 'transfer' ? 'active transfer' : ''} onClick={() => setHistoryFilter('transfer')} role="tab" aria-selected={historyFilter === 'transfer'}>โอนย้าย <span>{transferCount}</span></button>
+      </div>
+      <div className="all-history-records">
+        {allHistoryLoading && <p className="history-status">กำลังอ่านประวัติทั้งหมด…</p>}
+        {!allHistoryLoading && filteredAllHistory.length === 0 && <p className="history-status">ไม่พบประวัติ{historyFilter === 'all' ? '' : historyFilter === 'receipt' ? 'รับเข้า' : 'โอนย้าย'}ของสินค้านี้</p>}
+        {!allHistoryLoading && filteredAllHistory.map((entry, index) => <article className="all-history-record" key={`${entry.kind}-${entry.ref}-${index}`}>
+          <time><strong>{entry.date}</strong><span>{entry.time ? `${entry.time} น.` : 'ไม่ระบุเวลา'}</span></time>
+          <div className="record-detail"><strong>{entry.title}</strong><span>{entry.ref} · {entry.location}</span></div>
+          <div className={`record-amount ${entry.kind}`}><strong>{entry.amount}</strong><span>{entry.unit}</span></div>
+          <span className={`history-kind ${entry.kind}`}>{entry.kind === 'receipt' ? 'รับเข้า' : 'โอนย้าย'}</span>
+        </article>)}
+      </div>
+    </section>
+
+    <nav className="bottom-nav" aria-label="เมนูหลัก">
+      <button onClick={reset}><Icon name="home" size={21}/><span>หน้าหลัก</span></button>
+      <button onClick={() => setView('scan')}><Icon name="scan" size={21}/><span>สแกน</span></button>
+      <button className="selected"><Icon name="list" size={21}/><span>รายการ</span></button>
+    </nav>
+  </main>;
   return <main className="app-shell">
     <header className="topbar">
       <div>
@@ -251,14 +333,14 @@ function App() {
             <div className={`record-amount ${tab}`}><strong>{entry.amount}</strong><span>{entry.unit}</span></div>
           </article>)}
         </div>
-        <button className="all-history" onClick={() => alert('หน้าประวัติทั้งหมดจะเชื่อมต่อเมื่อกำหนดขอบเขตข้อมูลเรียบร้อย')}>ดูประวัติทั้งหมด <Icon name="chevron" size={18} /></button>
+        <button className="all-history" onClick={openAllHistory}>ดูประวัติทั้งหมด <Icon name="chevron" size={18} /></button>
       </section>
     </>}
 
     <nav className="bottom-nav" aria-label="เมนูหลัก">
-      <button><Icon name="home" size={21}/><span>หน้าหลัก</span></button>
-      <button className="selected"><Icon name="scan" size={21}/><span>สแกน</span></button>
-      <button><Icon name="list" size={21}/><span>รายการ</span></button>
+      <button onClick={reset}><Icon name="home" size={21}/><span>หน้าหลัก</span></button>
+      <button className="selected" onClick={() => setView('scan')}><Icon name="scan" size={21}/><span>สแกน</span></button>
+      <button onClick={openAllHistory} disabled={!product}><Icon name="list" size={21}/><span>รายการ</span></button>
     </nav>
   </main>;
 }
