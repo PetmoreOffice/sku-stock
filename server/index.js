@@ -146,6 +146,7 @@ app.get('/api/products/:goodsKey/history/:kind', requireAuth, async (req, res, n
     const result = await (await poolReady)
       .request()
       .input('goodsKey', mssql.Int, goodsKey)
+      .input('historyLimit', mssql.Int, 20)
       .query(sql);
     res.json(result.recordset);
   } catch (error) { next(error); }
