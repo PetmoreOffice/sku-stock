@@ -145,7 +145,7 @@ function App() {
   }, [user, view, locationPickerOpen, accountMenuOpen, signOutConfirmOpen]);
   const totalStock = useMemo(() => stockRows.reduce((sum, row) => sum + Number(row.QTY || 0), 0), [stockRows]);
   const stockUnit = stockRows[0]?.UTQ_NAME || product?.scannedUnit || '';
-  const selectedLocationLabel = selectedLocation || 'ทุก Location';
+  const selectedLocationLabel = selectedLocation || 'ยังไม่ได้เลือก Location';
 
   const formatQuantity = (value) => Number(value || 0).toLocaleString('th-TH', { maximumFractionDigits: 4 });
 
@@ -191,11 +191,11 @@ function App() {
     setLocationPickerOpen(false);
     setLocationSearch('');
     setAllHistory([]);
+    setError('');
     if (!product) {
       requestAnimationFrame(() => inputRef.current?.focus());
       return;
     }
-    setError('');
     await Promise.all([
       loadStock(product.goodsKey, locationCode),
       activeProductPanel === 'stock' ? Promise.resolve() : loadHistory(product.goodsKey, activeProductPanel, locationCode),
@@ -289,6 +289,11 @@ function App() {
   };
 
   const goToScan = () => {
+    if (!selectedLocation) {
+      setError('กรุณาเลือก Location ก่อนเริ่มสแกนสินค้า');
+      setLocationPickerOpen(true);
+      return;
+    }
     setView('scan');
     requestAnimationFrame(() => inputRef.current?.focus());
   };
@@ -324,7 +329,6 @@ function App() {
       <span className="sheet-handle" aria-hidden="true" />
       <div className="location-sheet-heading"><div><p className="eyebrow">ตั้งค่าก่อนสแกน</p><h2 id="location-picker-title">เลือก Location</h2></div><button className="icon-button" type="button" onClick={() => setLocationPickerOpen(false)} aria-label="ปิด"><Icon name="close" size={20}/></button></div>
       <label className="location-search"><Icon name="search" size={19}/><input value={locationSearch} onChange={(event) => setLocationSearch(event.target.value)} placeholder="ค้นหา Location" autoFocus /></label>
-      <button type="button" className={`location-option all ${!selectedLocation ? 'selected' : ''}`} onClick={() => chooseLocation('')}><span><strong>ทุก Location</strong><small>ไม่กรองตามตำแหน่งเก็บ</small></span>{!selectedLocation && <span className="location-check">เลือกอยู่</span>}</button>
       <div className="location-option-list">
         {matchingLocations.length === 0 && <p className="history-status">ไม่พบ Location ที่ค้นหา</p>}
         {matchingLocations.map((location) => <button type="button" className={`location-option ${selectedLocation === location ? 'selected' : ''}`} key={location} onClick={() => chooseLocation(location)}><span><strong>{location}</strong><small>กรองข้อมูลเฉพาะ Location นี้</small></span>{selectedLocation === location && <span className="location-check">เลือกอยู่</span>}</button>)}
@@ -338,24 +342,22 @@ function App() {
       <button className="icon-button menu-button" type="button" onClick={() => setAccountMenuOpen(true)} aria-label="เมนูเพิ่มเติม" aria-haspopup="dialog" aria-expanded={accountMenuOpen}><Icon name="more" /></button>
     </header>
 
-    <section className="home-location" aria-label="Location ที่ใช้กรองข้อมูล">
-      <p>Location ที่กำลังใช้งาน</p>
-      <button type="button" className="location-trigger" onClick={() => setLocationPickerOpen(true)} aria-haspopup="dialog" aria-expanded={locationPickerOpen}>
-        <span className="location-trigger-icon"><Icon name="pin" size={20}/></span>
-        <span><strong>{selectedLocationLabel}</strong><small>{selectedLocation ? 'กรองข้อมูลสำหรับการสแกนครั้งถัดไป' : 'แสดงข้อมูลจากทุก Location'}</small></span>
-        <Icon name="chevron" size={19}/>
-      </button>
-    </section>
-
     <section className="home-scan-start" aria-labelledby="start-scan-title">
       <div className="home-scan-icon"><Icon name="scan" size={35}/></div>
       <p className="eyebrow">งานหลัก</p>
       <h2 id="start-scan-title">เริ่มสแกนสินค้า</h2>
-      <p>เลือก Location แล้วแตะปุ่มด้านล่าง จากนั้นยิงบาร์โค้ดได้ทันที</p>
-      <button type="button" onClick={goToScan}>ไปหน้าสแกน <Icon name="chevron" size={20}/></button>
+      <p>เลือก Location ก่อนเริ่ม แล้วสแกนบาร์โค้ดหรือพิมพ์ SKU ได้ทันที</p>
+      <button type="button" onClick={goToScan} disabled={!selectedLocation}>{selectedLocation ? 'เริ่มสแกน' : 'เลือก Location ก่อน'} <Icon name="chevron" size={20}/></button>
     </section>
 
-    <button type="button" className="home-search-link" onClick={goToScan}><Icon name="search" size={21}/><span><strong>ค้นหาด้วย SKU หรือบาร์โค้ด</strong><small>ใช้เมื่อสแกนเนอร์ไม่พร้อมใช้งาน</small></span><Icon name="chevron" size={19}/></button>
+    <section className="home-location" aria-label="Location ที่ใช้กรองข้อมูล">
+      <p>เลือก Location ก่อนเริ่มสแกน</p>
+      <button type="button" className="location-trigger" onClick={() => setLocationPickerOpen(true)} aria-haspopup="dialog" aria-expanded={locationPickerOpen}>
+        <span className="location-trigger-icon"><Icon name="pin" size={20}/></span>
+        <span><strong>{selectedLocationLabel}</strong><small>{selectedLocation ? 'ข้อมูลสแกนจะแสดงเฉพาะ Location นี้' : 'จำเป็นต้องเลือกก่อนเข้าสู่หน้าสแกน'}</small></span>
+        <Icon name="chevron" size={19}/>
+      </button>
+    </section>
     <p className="home-readonly"><span /> ระบบสำหรับดูข้อมูลเท่านั้น</p>
 
     <nav className="bottom-nav" aria-label="เมนูหลัก">
