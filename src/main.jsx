@@ -138,6 +138,11 @@ function App() {
   const [signOutConfirmOpen, setSignOutConfirmOpen] = useState(false);
   const inputRef = useRef(null);
   useEffect(() => onAuthStateChanged(auth, setUser), []);
+  useEffect(() => {
+    if (user && view === 'scan' && !locationPickerOpen && !accountMenuOpen && !signOutConfirmOpen) {
+      requestAnimationFrame(() => inputRef.current?.focus());
+    }
+  }, [user, view, locationPickerOpen, accountMenuOpen, signOutConfirmOpen]);
   const totalStock = useMemo(() => stockRows.reduce((sum, row) => sum + Number(row.QTY || 0), 0), [stockRows]);
   const stockUnit = stockRows[0]?.UTQ_NAME || product?.scannedUnit || '';
   const selectedLocationLabel = selectedLocation || 'ทุก Location';
