@@ -351,7 +351,7 @@ function App() {
     </section>
 
     <section className="home-location" aria-label="Location ที่ใช้กรองข้อมูล">
-      <p>เลือก Location ก่อนเริ่มสแกน</p>
+      <p><span className="home-step-badge">1</span> เลือก Location ก่อนเริ่มสแกน</p>
       <button type="button" className="location-trigger" onClick={() => setLocationPickerOpen(true)} aria-haspopup="dialog" aria-expanded={locationPickerOpen}>
         <span className="location-trigger-icon"><Icon name="pin" size={20}/></span>
         <span><strong>{selectedLocationLabel}</strong><small>{selectedLocation ? 'ข้อมูลสแกนจะแสดงเฉพาะ Location นี้' : 'จำเป็นต้องเลือกก่อนเข้าสู่หน้าสแกน'}</small></span>
@@ -413,12 +413,15 @@ function App() {
     {accountMenu}
   </main>;
   return <main className="app-shell">
-    <header className="topbar">
+    <header className="topbar scan-topbar">
       <div>
         <p className="eyebrow">คลังสินค้า</p>
         <h1>ตรวจสอบสต็อก</h1>
       </div>
-      <button className="icon-button menu-button" type="button" onClick={() => setAccountMenuOpen(true)} aria-label="เมนูเพิ่มเติม" aria-haspopup="dialog" aria-expanded={accountMenuOpen}><Icon name="more" /></button>
+      <div className="scan-header-actions">
+        <button type="button" className="scan-location-tag" onClick={() => setLocationPickerOpen(true)} aria-label={`เปลี่ยน Location ปัจจุบัน: ${selectedLocationLabel}`} aria-haspopup="dialog" aria-expanded={locationPickerOpen}><Icon name="pin" size={16}/><strong>{selectedLocationLabel}</strong><Icon name="chevron" size={15}/></button>
+        <button className="icon-button menu-button" type="button" onClick={() => setAccountMenuOpen(true)} aria-label="เมนูเพิ่มเติม" aria-haspopup="dialog" aria-expanded={accountMenuOpen}><Icon name="more" /></button>
+      </div>
     </header>
 
     <form className="scan-form" onSubmit={search}>
@@ -430,15 +433,6 @@ function App() {
       </div>
       <p className="hint">สแกนด้วยเครื่อง Handheld หรือกรอกรหัสสินค้าแทน</p>
     </form>
-
-    <section className="location-context" aria-label="Location ที่ใช้กรองข้อมูล">
-      <p>Location ที่ต้องการตรวจสอบ</p>
-      <button type="button" className="location-trigger" onClick={() => setLocationPickerOpen(true)} aria-haspopup="dialog" aria-expanded={locationPickerOpen}>
-        <span className="location-trigger-icon"><Icon name="pin" size={20}/></span>
-        <span><strong>{selectedLocationLabel}</strong><small>{selectedLocation ? 'กรองยอดคงเหลือ รับเข้า และโอนย้าย' : 'แสดงข้อมูลจากทุก Location'}</small></span>
-        <Icon name="chevron" size={19}/>
-      </button>
-    </section>
 
     {error && <p className="error-message" role="alert">{error}</p>}
 
