@@ -114,7 +114,6 @@ function Login({ onLogin }) {
       {error && <p className="error-message">{error}</p>}
       <button className="login-button" disabled={loading}>{loading ? 'กำลังตรวจสอบ…' : 'เข้าสู่ระบบ'}</button>
     </form>
-    <p className="login-footnote">ใช้ได้เฉพาะอีเมลบริษัท<br/>@petmoregroups.com หรือ @newgenman.co.th</p>
     </section>
   </div></main>;
 }
