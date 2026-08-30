@@ -333,9 +333,9 @@ function App() {
       <div className="location-sheet-heading"><div><p className="eyebrow">ตั้งค่าก่อนสแกน</p><h2 id="location-picker-title">เลือก Location</h2></div><button className="icon-button" type="button" onClick={() => setLocationPickerOpen(false)} aria-label="ปิด"><Icon name="close" size={20}/></button></div>
       <label className="location-search"><Icon name="search" size={19}/><input value={locationSearch} onChange={(event) => setLocationSearch(event.target.value)} placeholder="ค้นหา Location" autoFocus /></label>
       {quickLocations.length > 0 && <section className="quick-location-section" aria-label="Location ที่ใช้บ่อย">
-        <p className="location-section-title">Location ที่ใช้บ่อย</p>
-        <div className="quick-location-list">
-          {quickLocations.map((location) => <button type="button" className={`quick-location ${selectedLocation === location ? 'selected' : ''}`} key={location} onClick={() => chooseLocation(location)}>{location}{selectedLocation === location && <span>เลือกอยู่</span>}</button>)}
+        <p className="location-section-title">Location แนะนำ</p>
+        <div className="location-option-list">
+          {quickLocations.map((location) => <button type="button" className={`location-option ${selectedLocation === location ? 'selected' : ''}`} key={location} onClick={() => chooseLocation(location)}><span><strong>{location}</strong><small>กรองข้อมูลเฉพาะ Location นี้</small></span>{selectedLocation === location && <span className="location-check">เลือกอยู่</span>}</button>)}
         </div>
       </section>}
       {otherLocations.length > 0 && <section className="other-location-section" aria-label="Location อื่น">
