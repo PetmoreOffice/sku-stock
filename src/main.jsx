@@ -21,6 +21,18 @@ function formatDate(value) {
   return new Intl.DateTimeFormat('th-TH', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(value));
 }
 
+function apiErrorMessage(response, fallback) {
+  if (response.status === 401) return 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบอีกครั้ง';
+  if (response.status === 403) return 'บัญชีนี้ไม่มีสิทธิ์ดูข้อมูลดังกล่าว';
+  if (response.status >= 500) return 'เชื่อมต่อระบบคลังสินค้าไม่ได้ โปรดลองใหม่';
+  return fallback;
+}
+
+function friendlyRequestError(error, fallback) {
+  if (/failed to fetch|network|networkerror|unexpected token|unexpected end/i.test(error?.message || '')) return 'เชื่อมต่อระบบคลังสินค้าไม่ได้ โปรดลองใหม่';
+  return error?.message || fallback;
+}
+
 function mapHistory(rows, kind) {
   return rows.map((row) => ({
     kind,
@@ -73,6 +85,13 @@ function AccountMenu({ email, menuOpen, confirmOpen, onCloseMenu, onRequestSignO
       </section>
     </div>}
   </>;
+}
+
+function ErrorNotice({ message, onRetry, retrying = false }) {
+  return <div className="error-message" role="alert">
+    <span>{message}</span>
+    {onRetry && <button type="button" onClick={onRetry} disabled={retrying}>{retrying ? 'กำลังลองใหม่…' : 'ลองใหม่'}</button>}
+  </div>;
 }
 
 function Login({ onLogin }) {
@@ -134,6 +153,7 @@ function App() {
   const [historyFilter, setHistoryFilter] = useState('all');
   const [stockLoading, setStockLoading] = useState(false);
   const [error, setError] = useState('');
+  const [retryAction, setRetryAction] = useState('');
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [signOutConfirmOpen, setSignOutConfirmOpen] = useState(false);
   const inputRef = useRef(null);
@@ -154,7 +174,7 @@ function App() {
     const params = new URLSearchParams({ limit: String(limit) });
     if (locationCode) params.set('location', locationCode);
     const response = await fetch(`/api/products/${goodsKey}/history/${kind === 'receipt' ? 'receipts' : 'transfers'}?${params}`, { headers: { Authorization: `Bearer ${token}` } });
-    if (!response.ok) throw new Error('ไม่สามารถอ่านประวัติรายการได้');
+    if (!response.ok) throw new Error(apiErrorMessage(response, 'ไม่สามารถอ่านประวัติรายการได้'));
     return mapHistory(await response.json(), kind);
   };
 
@@ -164,7 +184,8 @@ function App() {
       setRecords(await fetchHistory(goodsKey, kind, 20, locationCode));
     } catch (requestError) {
       setRecords([]);
-      setError(requestError.message);
+      setError(friendlyRequestError(requestError, 'ไม่สามารถอ่านประวัติรายการได้'));
+      setRetryAction('history');
     } finally {
       setHistoryLoading(false);
     }
@@ -174,16 +195,23 @@ function App() {
     setActiveProductPanel(panel);
     if (!product || panel === 'stock') return;
     setTab(panel);
+    setError('');
+    setRetryAction('');
     loadHistory(product.goodsKey, panel);
   };
 
   const loadLocations = async () => {
+    setError('');
+    setRetryAction('');
     try {
       const token = await auth.currentUser.getIdToken();
       const response = await fetch('/api/locations', { headers: { Authorization: `Bearer ${token}` } });
-      if (!response.ok) throw new Error('ไม่สามารถอ่านรายการ Location ได้');
+      if (!response.ok) throw new Error(apiErrorMessage(response, 'ไม่สามารถอ่านรายการ Location ได้'));
       setLocations(await response.json());
-    } catch (requestError) { setError(requestError.message); }
+    } catch (requestError) {
+      setError(friendlyRequestError(requestError, 'ไม่สามารถอ่านรายการ Location ได้'));
+      setRetryAction('locations');
+    }
   };
 
   const chooseLocation = async (locationCode) => {
@@ -208,6 +236,7 @@ function App() {
     setHistoryFilter('all');
     setAllHistoryLoading(true);
     setError('');
+    setRetryAction('');
     try {
       const [receipts, transfers] = await Promise.all([
         fetchHistory(product.goodsKey, 'receipt', 1000),
@@ -216,7 +245,8 @@ function App() {
       setAllHistory([...receipts, ...transfers].sort((a, b) => b.timestamp - a.timestamp));
     } catch (requestError) {
       setAllHistory([]);
-      setError(requestError.message);
+      setError(friendlyRequestError(requestError, 'ไม่สามารถอ่านประวัติทั้งหมดได้'));
+      setRetryAction('all-history');
     } finally {
       setAllHistoryLoading(false);
     }
@@ -229,11 +259,12 @@ function App() {
       if (locationCode) params.set('location', locationCode);
       const suffix = params.toString() ? `?${params}` : '';
       const response = await auth.currentUser.getIdToken().then((token) => fetch(`/api/products/${goodsKey}/stock${suffix}`, { headers: { Authorization: `Bearer ${token}` } }));
-      if (!response.ok) throw new Error('ไม่สามารถอ่านยอดคงเหลือได้');
+      if (!response.ok) throw new Error(apiErrorMessage(response, 'ไม่สามารถอ่านยอดคงเหลือได้'));
       setStockRows(await response.json());
     } catch (requestError) {
       setStockRows([]);
-      setError(requestError.message);
+      setError(friendlyRequestError(requestError, 'ไม่สามารถอ่านยอดคงเหลือได้'));
+      setRetryAction('stock');
     } finally {
       setStockLoading(false);
     }
@@ -243,17 +274,16 @@ function App() {
     if (user) loadLocations();
   }, [user]);
 
-  const search = async (event) => {
-    event.preventDefault();
-    const scanValue = query.trim();
+  const searchByCode = async (scanValue) => {
     if (!scanValue) return setError('กรุณาสแกนหรือพิมพ์รหัสสินค้าก่อนค้นหา');
     setLoading(true);
     setError('');
+    setRetryAction('');
     try {
       const token = await auth.currentUser.getIdToken();
       const response = await fetch(`/api/products/scan/${encodeURIComponent(scanValue)}`, { headers: { Authorization: `Bearer ${token}` } });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.message || 'ไม่สามารถค้นหาสินค้าได้');
+      if (!response.ok) throw new Error(data.message || apiErrorMessage(response, 'ไม่สามารถค้นหาสินค้าได้'));
       setProduct(data);
       setView('scan');
       setActiveProductPanel('stock');
@@ -262,10 +292,16 @@ function App() {
     } catch (requestError) {
       setProduct(null);
       setRecords([]);
-      setError(requestError.message);
+      setError(friendlyRequestError(requestError, 'ไม่สามารถค้นหาสินค้าได้'));
+      setRetryAction('search');
     } finally {
       setLoading(false);
     }
+  };
+
+  const search = async (event) => {
+    event.preventDefault();
+    await searchByCode(query.trim());
   };
 
   const clearLookup = (nextView) => {
@@ -277,6 +313,7 @@ function App() {
     setActiveProductPanel('stock');
     setStockRows([]);
     setError('');
+    setRetryAction('');
   };
 
   const reset = () => {
@@ -296,6 +333,23 @@ function App() {
     }
     setView('scan');
     requestAnimationFrame(() => inputRef.current?.focus());
+  };
+
+  const goToHistory = () => {
+    if (product) {
+      openAllHistory();
+      return;
+    }
+    clearLookup('history');
+  };
+
+  const retryLastRequest = async () => {
+    setError('');
+    if (retryAction === 'locations') return loadLocations();
+    if (retryAction === 'search') return searchByCode(query.trim());
+    if (retryAction === 'stock' && product) return loadStock(product.goodsKey);
+    if (retryAction === 'history' && product && activeProductPanel !== 'stock') return loadHistory(product.goodsKey, activeProductPanel);
+    if (retryAction === 'all-history' && product) return openAllHistory();
   };
 
   const requestSignOut = () => {
@@ -339,7 +393,7 @@ function App() {
         </div>
       </section>}
       {otherLocations.length > 0 && <section className="other-location-section" aria-label="Location อื่น">
-        <p className="location-section-title">Location อื่น</p>
+        <p className="location-section-title">Location เพิ่มเติม</p>
         <div className="location-option-list">
           {otherLocations.map((location) => <button type="button" className={`location-option ${selectedLocation === location ? 'selected' : ''}`} key={location} onClick={() => chooseLocation(location)}><span><strong>{location}</strong><small>กรองข้อมูลเฉพาะ Location นี้</small></span>{selectedLocation === location && <span className="location-check">เลือกอยู่</span>}</button>)}
         </div>
@@ -354,12 +408,12 @@ function App() {
       <button className="icon-button menu-button" type="button" onClick={() => setAccountMenuOpen(true)} aria-label="เมนูเพิ่มเติม" aria-haspopup="dialog" aria-expanded={accountMenuOpen}><Icon name="more" /></button>
     </header>
 
-    <section className="home-scan-start" aria-labelledby="start-scan-title">
+    <section className={`home-scan-start ${!selectedLocation ? 'is-locked' : ''}`} aria-labelledby="start-scan-title">
       <div className="home-scan-icon"><Icon name="scan" size={35}/></div>
       <p className="eyebrow">งานหลัก</p>
       <h2 id="start-scan-title">เริ่มสแกนสินค้า</h2>
-      <p>เลือก Location ก่อนเริ่ม แล้วสแกนบาร์โค้ดหรือพิมพ์ SKU ได้ทันที</p>
-      <button type="button" onClick={goToScan} disabled={!selectedLocation}>{selectedLocation ? 'เริ่มสแกน' : 'เลือก Location ก่อน'} <Icon name="chevron" size={20}/></button>
+      <p>{selectedLocation ? 'สแกนบาร์โค้ดหรือพิมพ์ SKU เพื่อดูข้อมูลใน Location นี้' : 'เริ่มจากเลือก Location ด้านล่าง เพื่อให้ข้อมูลที่เห็นตรงกับตำแหน่งเก็บ'}</p>
+      <button type="button" onClick={goToScan}>{selectedLocation ? 'เริ่มสแกน' : 'เลือก Location ด้านล่าง'} <Icon name="chevron" size={20}/></button>
     </section>
 
     <section className="home-location" aria-label="Location ที่ใช้กรองข้อมูล">
@@ -370,33 +424,38 @@ function App() {
         <Icon name="chevron" size={19}/>
       </button>
     </section>
+    {error && <ErrorNotice message={error} onRetry={retryAction ? retryLastRequest : undefined} />}
     <p className="home-readonly"><span /> ระบบสำหรับดูข้อมูลเท่านั้น</p>
 
     <nav className="bottom-nav" aria-label="เมนูหลัก">
       <button className="selected"><Icon name="home" size={21}/><span>หน้าหลัก</span></button>
       <button onClick={goToScan}><Icon name="scan" size={21}/><span>สแกน</span></button>
-      <button onClick={openAllHistory} disabled={!product}><Icon name="list" size={21}/><span>รายการ</span></button>
+      <button onClick={goToHistory}><Icon name="list" size={21}/><span>รายการ</span></button>
     </nav>
     {accountMenu}
     {locationPicker}
   </main>;
 
-  if (view === 'history' && product) return <main className="app-shell history-page-shell">
+  if (view === 'history') return <main className="app-shell history-page-shell">
     <header className="topbar history-page-topbar">
-      <button className="back-button" onClick={() => setView('scan')}><Icon name="back" size={21}/><span>ย้อนกลับ</span></button>
+      <button className="back-button" onClick={product ? () => setView('scan') : goHome}><Icon name="back" size={21}/><span>ย้อนกลับ</span></button>
       <button className="icon-button menu-button" type="button" onClick={() => setAccountMenuOpen(true)} aria-label="เมนูเพิ่มเติม" aria-haspopup="dialog" aria-expanded={accountMenuOpen}><Icon name="more" /></button>
     </header>
 
     <section className="history-page-intro" aria-labelledby="all-history-title">
       <p className="eyebrow">ประวัติสินค้า</p>
-      <h1 id="all-history-title">ดูประวัติทั้งหมด</h1>
-      <p>{product.name}</p>
-      <span>{product.sku} · {product.scannedUnit} · {selectedLocationLabel}</span>
+      <h1 id="all-history-title">{product ? 'ดูประวัติทั้งหมด' : 'รายการสินค้า'}</h1>
+      {product && <><p>{product.name}</p><span>{product.sku} · {product.scannedUnit} · {selectedLocationLabel}</span></>}
     </section>
 
-    {error && <p className="error-message" role="alert">{error}</p>}
+    {error && <ErrorNotice message={error} onRetry={retryAction ? retryLastRequest : undefined} retrying={allHistoryLoading} />}
 
-    <section className="all-history-panel" aria-label="ประวัติรับเข้าและโอนย้าย">
+    {!product ? <section className="empty-state history-empty-state">
+      <div className="empty-icon"><Icon name="list" size={28} /></div>
+      <h2>ยังไม่มีสินค้าที่เลือก</h2>
+      <p>สแกนหรือค้นหาสินค้าก่อน แล้วจึงดูประวัติรับเข้าและโอนย้ายได้</p>
+      <button type="button" className="empty-primary-action" onClick={goToScan}>ไปหน้าสแกน <Icon name="chevron" size={18}/></button>
+    </section> : <section className="all-history-panel" aria-label="ประวัติรับเข้าและโอนย้าย">
       <div className="history-summary">
         <div><strong>{allHistory.length.toLocaleString('th-TH')}</strong><span>รายการทั้งหมด</span></div>
         <p>แสดงได้สูงสุด 1,000 รายการต่อประเภท</p>
@@ -415,7 +474,7 @@ function App() {
           <div className={`record-amount ${entry.kind}`}><span className={`history-kind ${entry.kind}`}>{entry.kind === 'receipt' ? 'รับเข้า' : 'โอนย้าย'}</span><strong>{entry.amount}</strong><span>{entry.unit}</span></div>
         </article>)}
       </div>
-    </section>
+    </section>}
 
     <nav className="bottom-nav" aria-label="เมนูหลัก">
       <button onClick={goHome}><Icon name="home" size={21}/><span>หน้าหลัก</span></button>
@@ -423,6 +482,7 @@ function App() {
       <button className="selected"><Icon name="list" size={21}/><span>รายการ</span></button>
     </nav>
     {accountMenu}
+    {locationPicker}
   </main>;
   return <main className="app-shell">
     <header className="topbar scan-topbar">
@@ -446,7 +506,7 @@ function App() {
       <p className="hint">สแกนด้วยเครื่อง Handheld หรือกรอกรหัสสินค้าแทน</p>
     </form>
 
-    {error && <p className="error-message" role="alert">{error}</p>}
+    {error && <ErrorNotice message={error} onRetry={retryAction ? retryLastRequest : undefined} retrying={loading || stockLoading || historyLoading} />}
 
     {!product && !loading && <section className="empty-state">
       <div className="empty-icon"><Icon name="scan" size={28} /></div>
@@ -490,7 +550,7 @@ function App() {
           {!stockLoading && stockRows.length === 0 && <p className="history-status">ไม่พบยอดคงเหลือใน Location</p>}
           {!stockLoading && stockRows.map((row) => <article className="branch-row" key={row.WL_CODE}>
             <span className="availability main" />
-            <span className="branch-name"><strong>{row.WL_CODE}</strong><small>Warehouse Location</small></span>
+            <span className="branch-name"><strong>{row.WL_CODE}</strong><small>ตำแหน่งเก็บ</small></span>
             <span className="branch-amount"><strong>{formatQuantity(row.QTY)}</strong><small>{row.UTQ_NAME}</small></span>
             <Icon name="chevron" size={19} stroke={1.7} />
           </article>)}
@@ -518,7 +578,7 @@ function App() {
     <nav className="bottom-nav" aria-label="เมนูหลัก">
       <button onClick={goHome}><Icon name="home" size={21}/><span>หน้าหลัก</span></button>
       <button className="selected" onClick={goToScan}><Icon name="scan" size={21}/><span>สแกน</span></button>
-      <button onClick={openAllHistory} disabled={!product}><Icon name="list" size={21}/><span>รายการ</span></button>
+      <button onClick={goToHistory}><Icon name="list" size={21}/><span>รายการ</span></button>
     </nav>
     {accountMenu}
     {locationPicker}
