@@ -95,17 +95,11 @@ function ErrorNotice({ message, onRetry, retrying = false }) {
 }
 
 function HistoryRecordDetail({ entry }) {
-  if (entry.kind === 'receipt') {
-    return <div className="record-detail receipt-detail">
-      <strong className={`expiry-primary${entry.expiry ? '' : ' missing'}`}>หมดอายุ: {entry.expiry || 'ไม่ระบุ'}</strong>
-      <span className="record-reference" title={entry.title}>อ้างอิง: {entry.title}</span>
-      <span className="record-meta">{entry.ref} · {entry.location}</span>
-    </div>;
-  }
-
-  return <div className="record-detail">
-    <strong>{entry.title}</strong>
-    <span>{entry.ref} · {entry.location}</span>
+  const isReceipt = entry.kind === 'receipt';
+  return <div className="record-detail expiry-detail">
+    <strong className={`expiry-primary${entry.expiry ? '' : ' missing'}`}>หมดอายุ: {entry.expiry || 'ไม่ระบุ'}</strong>
+    <span className="record-reference" title={entry.title}>{isReceipt ? 'อ้างอิง' : 'เส้นทาง'}: {entry.title}</span>
+    <span className="record-meta">{isReceipt ? `${entry.ref} · ${entry.location}` : `อ้างอิง: ${entry.ref}`}</span>
   </div>;
 }
 
