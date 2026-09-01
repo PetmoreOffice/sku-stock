@@ -38,7 +38,7 @@ function mapHistory(rows, kind) {
     kind,
     timestamp: new Date(row.DI_DATE).getTime() || 0,
     date: formatDate(row.DI_DATE),
-    title: kind === 'receipt' ? (row.TRD_SH_REMARK || 'รับเข้า') : `${row.WL_CODE || 'ไม่ระบุต้นทาง'} → ${row.TRD_TO_WL || 'ไม่ระบุปลายทาง'}`,
+    title: kind === 'receipt' ? (row.TRD_SH_REMARK || 'รับเข้า') : `ปลายทาง: ${row.TRD_TO_WL || 'ไม่ระบุ'}`,
     ref: row.DI_REF || 'ไม่ระบุเลขเอกสาร',
     location: kind === 'receipt' ? (row.TRD_TO_WL || row.WL_CODE || 'ไม่ระบุคลัง') : 'โอนย้าย',
     expiry: row.TRD_EXP_D ? formatDate(row.TRD_EXP_D) : '',
@@ -98,7 +98,7 @@ function HistoryRecordDetail({ entry }) {
   const isReceipt = entry.kind === 'receipt';
   return <div className="record-detail expiry-detail">
     <strong className={`expiry-primary${entry.expiry ? '' : ' missing'}`}>หมดอายุ: {entry.expiry || 'ไม่ระบุ'}</strong>
-    <span className="record-reference" title={entry.title}>{isReceipt ? 'อ้างอิง' : 'เส้นทาง'}: {entry.title}</span>
+    <span className="record-reference" title={entry.title}>{isReceipt ? `อ้างอิง: ${entry.title}` : entry.title}</span>
     <span className="record-meta">{isReceipt ? `${entry.ref} · ${entry.location}` : `อ้างอิง: ${entry.ref}`}</span>
   </div>;
 }
