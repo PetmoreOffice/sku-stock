@@ -1,7 +1,6 @@
 /*
   Receipts: first source query confirmed by the business team.
-  Add a parameterised filter before API use:
-    AND GOODSMASTER.GOODS_KEY = @goodsKey
+  Filter by SKU_KEY so every packaging barcode for the same SKU shares one history.
 */
 SELECT TOP (@historyLimit)
   DOCINFO.DI_REF,
@@ -37,6 +36,6 @@ WHERE
   AND TRANSTKD.TRD_WL = WARELOCATION.WL_KEY
   AND WARELOCATION.WL_WH = WAREHOUSE.WH_KEY
   AND TRANSTKD.TRD_TO_WL = WL.WLKEY
-  AND GOODSMASTER.GOODS_KEY = @goodsKey
+  AND TRANSTKD.TRD_SKU = @skuKey
   AND (@locationCode IS NULL OR WL.WLCODE = @locationCode)
 ORDER BY DOCINFO.DI_DATE DESC, DOCINFO.DI_REF DESC;

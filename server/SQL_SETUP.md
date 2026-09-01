@@ -30,6 +30,7 @@
 - หน่วยที่สแกนเชื่อมจาก `GOODSMASTER.GOODS_UTQ` ไปยัง `UOFQTY.UTQ_KEY` แล้วแสดง `UOFQTY.UTQ_NAME`; ตัวคูณหน่วยใช้ `UOFQTY.UTQ_QTY`
 - Query รับเข้าถูกเก็บที่ `server/queries/receipts.sql`
 - Query โอนย้ายถูกเก็บที่ `server/queries/transfers.sql`
+- ประวัติรับเข้าและโอนย้ายกรองด้วย `SKUMASTER.SKU_KEY`/`TRANSTKD.TRD_SKU` เพื่อให้บาร์ลัง บาร์ถุง และบาร์ชิ้นของ SKU เดียวกันเห็นประวัติชุดเดียวกัน
 - ประเภทเอกสารรับเข้าที่ใช้อยู่: `311, 312`
 - โอนย้ายใช้ฟิลด์ `DI_REF`, `DI_DATE`, `TRD_SH_QTY`, `TRD_UTQNAME`, `WL_CODE`, และ `TRD_TO_WL`
 

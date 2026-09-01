@@ -85,6 +85,11 @@ function asGoodsKey(value) {
   return Number.isSafeInteger(goodsKey) && goodsKey > 0 ? goodsKey : null;
 }
 
+function asSkuKey(value) {
+  const skuKey = Number(value);
+  return Number.isSafeInteger(skuKey) && skuKey > 0 ? skuKey : null;
+}
+
 function asLocationCode(value) {
   const locationCode = String(value || '').trim();
   return locationCode && locationCode.length <= 50 ? locationCode : null;
@@ -150,21 +155,21 @@ app.get('/api/products/:goodsKey/stock', requireAuth, async (req, res, next) => 
   } catch (error) { next(error); }
 });
 
-app.get('/api/products/:goodsKey/history/:kind', requireAuth, async (req, res, next) => {
+app.get('/api/skus/:skuKey/history/:kind', requireAuth, async (req, res, next) => {
   try {
-    const goodsKey = asGoodsKey(req.params.goodsKey);
+    const skuKey = asSkuKey(req.params.skuKey);
     const file = req.params.kind === 'receipts' ? 'receipts.sql' : req.params.kind === 'transfers' ? 'transfers.sql' : null;
     const locationCode = asLocationCode(req.query.location);
     const requestedLimit = Number(req.query.limit);
     const historyLimit = Number.isFinite(requestedLimit)
       ? Math.min(Math.max(Math.floor(requestedLimit), 1), 1000)
       : 20;
-    if (!goodsKey || !file) return res.status(400).json({ message: 'คำขอไม่ถูกต้อง' });
+    if (!skuKey || !file) return res.status(400).json({ message: 'คำขอไม่ถูกต้อง' });
 
     const sql = await queryFile(file);
     const result = await (await poolReady)
       .request()
-      .input('goodsKey', mssql.Int, goodsKey)
+      .input('skuKey', mssql.Int, skuKey)
       .input('historyLimit', mssql.Int, historyLimit)
       .input('locationCode', mssql.NVarChar(50), locationCode)
       .query(sql);

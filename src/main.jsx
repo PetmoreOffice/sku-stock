@@ -178,19 +178,19 @@ function App() {
 
   const formatQuantity = (value) => Number(value || 0).toLocaleString('th-TH', { maximumFractionDigits: 4 });
 
-  const fetchHistory = async (goodsKey, kind, limit = 20, locationCode = selectedLocation) => {
+  const fetchHistory = async (skuKey, kind, limit = 20, locationCode = selectedLocation) => {
     const token = await auth.currentUser.getIdToken();
     const params = new URLSearchParams({ limit: String(limit) });
     if (locationCode) params.set('location', locationCode);
-    const response = await fetch(`/api/products/${goodsKey}/history/${kind === 'receipt' ? 'receipts' : 'transfers'}?${params}`, { headers: { Authorization: `Bearer ${token}` } });
+    const response = await fetch(`/api/skus/${skuKey}/history/${kind === 'receipt' ? 'receipts' : 'transfers'}?${params}`, { headers: { Authorization: `Bearer ${token}` } });
     if (!response.ok) throw new Error(apiErrorMessage(response, 'ไม่สามารถอ่านประวัติรายการได้'));
     return mapHistory(await response.json(), kind);
   };
 
-  const loadHistory = async (goodsKey, kind, locationCode = selectedLocation) => {
+  const loadHistory = async (skuKey, kind, locationCode = selectedLocation) => {
     setHistoryLoading(true);
     try {
-      setRecords(await fetchHistory(goodsKey, kind, 20, locationCode));
+      setRecords(await fetchHistory(skuKey, kind, 20, locationCode));
     } catch (requestError) {
       setRecords([]);
       setError(friendlyRequestError(requestError, 'ไม่สามารถอ่านประวัติรายการได้'));
@@ -206,7 +206,7 @@ function App() {
     setTab(panel);
     setError('');
     setRetryAction('');
-    loadHistory(product.goodsKey, panel);
+    loadHistory(product.skuKey, panel);
   };
 
   const loadLocations = async () => {
@@ -235,7 +235,7 @@ function App() {
     }
     await Promise.all([
       loadStock(product.goodsKey, locationCode),
-      activeProductPanel === 'stock' ? Promise.resolve() : loadHistory(product.goodsKey, activeProductPanel, locationCode),
+      activeProductPanel === 'stock' ? Promise.resolve() : loadHistory(product.skuKey, activeProductPanel, locationCode),
     ]);
   };
 
@@ -248,8 +248,8 @@ function App() {
     setRetryAction('');
     try {
       const [receipts, transfers] = await Promise.all([
-        fetchHistory(product.goodsKey, 'receipt', 1000),
-        fetchHistory(product.goodsKey, 'transfer', 1000),
+        fetchHistory(product.skuKey, 'receipt', 1000),
+        fetchHistory(product.skuKey, 'transfer', 1000),
       ]);
       setAllHistory([...receipts, ...transfers].sort((a, b) => b.timestamp - a.timestamp));
     } catch (requestError) {
@@ -297,7 +297,7 @@ function App() {
       setView('scan');
       setActiveProductPanel('stock');
       setTab('receipt');
-      await Promise.all([loadHistory(data.goodsKey, 'receipt'), loadStock(data.goodsKey)]);
+      await Promise.all([loadHistory(data.skuKey, 'receipt'), loadStock(data.goodsKey)]);
     } catch (requestError) {
       setProduct(null);
       setRecords([]);
@@ -357,7 +357,7 @@ function App() {
     if (retryAction === 'locations') return loadLocations();
     if (retryAction === 'search') return searchByCode(query.trim());
     if (retryAction === 'stock' && product) return loadStock(product.goodsKey);
-    if (retryAction === 'history' && product && activeProductPanel !== 'stock') return loadHistory(product.goodsKey, activeProductPanel);
+    if (retryAction === 'history' && product && activeProductPanel !== 'stock') return loadHistory(product.skuKey, activeProductPanel);
     if (retryAction === 'all-history' && product) return openAllHistory();
   };
 
