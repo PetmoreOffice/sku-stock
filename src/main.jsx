@@ -40,7 +40,7 @@ function mapHistory(rows, kind) {
     date: formatDate(row.DI_DATE),
     title: kind === 'receipt' ? (row.TRD_SH_REMARK || 'รับเข้า') : `ปลายทาง: ${row.TRD_TO_WL || 'ไม่ระบุ'}`,
     ref: row.DI_REF || 'ไม่ระบุเลขเอกสาร',
-    location: kind === 'receipt' ? (row.TRD_TO_WL || row.WL_CODE || 'ไม่ระบุคลัง') : 'โอนย้าย',
+    location: kind === 'receipt' ? (row.WL_CODE || 'ไม่ระบุคลัง') : 'โอนย้าย',
     expiry: row.TRD_EXP_D ? formatDate(row.TRD_EXP_D) : '',
     amount: Number(row.TRD_SH_QTY || 0).toLocaleString('th-TH'),
     unit: row.TRD_UTQNAME || '',
