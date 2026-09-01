@@ -176,7 +176,13 @@ function App() {
   const stockUnit = stockRows[0]?.UTQ_NAME || product?.scannedUnit || '';
   const selectedLocationLabel = selectedLocation || 'ยังไม่ได้เลือก Location';
 
-  const formatQuantity = (value) => Number(value || 0).toLocaleString('th-TH', { maximumFractionDigits: 4 });
+  const formatQuantity = (value) => {
+    const quantity = Number(value);
+    if (!Number.isFinite(quantity)) return '0';
+    return quantity.toLocaleString('th-TH', Number.isInteger(quantity)
+      ? { maximumFractionDigits: 0 }
+      : { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
 
   const fetchHistory = async (skuKey, kind, limit = 20, locationCode = selectedLocation) => {
     const token = await auth.currentUser.getIdToken();
