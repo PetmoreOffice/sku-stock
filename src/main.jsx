@@ -94,6 +94,21 @@ function ErrorNotice({ message, onRetry, retrying = false }) {
   </div>;
 }
 
+function HistoryRecordDetail({ entry }) {
+  if (entry.kind === 'receipt') {
+    return <div className="record-detail receipt-detail">
+      <strong className={`expiry-primary${entry.expiry ? '' : ' missing'}`}>หมดอายุ: {entry.expiry || 'ไม่ระบุ'}</strong>
+      <span className="record-reference" title={entry.title}>อ้างอิง: {entry.title}</span>
+      <span className="record-meta">{entry.ref} · {entry.location}</span>
+    </div>;
+  }
+
+  return <div className="record-detail">
+    <strong>{entry.title}</strong>
+    <span>{entry.ref} · {entry.location}</span>
+  </div>;
+}
+
 function Login({ onLogin }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -470,7 +485,7 @@ function App() {
         {!allHistoryLoading && filteredAllHistory.length === 0 && <p className="history-status">ไม่พบประวัติ{historyFilter === 'all' ? '' : historyFilter === 'receipt' ? 'รับเข้า' : 'โอนย้าย'}ของสินค้านี้</p>}
         {!allHistoryLoading && filteredAllHistory.map((entry, index) => <article className="all-history-record" key={`${entry.kind}-${entry.ref}-${index}`}>
           <time><strong>{entry.date}</strong></time>
-          <div className="record-detail"><strong>{entry.title}</strong><span>{entry.ref} · {entry.location}</span>{entry.expiry && <span className="expiry-date">หมดอายุ: {entry.expiry}</span>}</div>
+          <HistoryRecordDetail entry={entry} />
           <div className={`record-amount ${entry.kind}`}><span className={`history-kind ${entry.kind}`}>{entry.kind === 'receipt' ? 'รับเข้า' : 'โอนย้าย'}</span><strong>{entry.amount}</strong><span>{entry.unit}</span></div>
         </article>)}
       </div>
@@ -567,7 +582,7 @@ function App() {
           {!historyLoading && records.length === 0 && <p className="history-status">ไม่พบประวัติ{activeProductPanel === 'receipt' ? 'รับเข้า' : 'โอนย้าย'}ของสินค้านี้</p>}
           {!historyLoading && records.map((entry, index) => <article className="record" key={`${entry.ref}-${index}`}>
             <time><strong>{entry.date}</strong></time>
-            <div className="record-detail"><strong>{entry.title}</strong><span>{entry.ref} · {entry.location}</span>{entry.expiry && <span className="expiry-date">หมดอายุ: {entry.expiry}</span>}</div>
+            <HistoryRecordDetail entry={entry} />
             <div className={`record-amount ${activeProductPanel}`}><strong>{entry.amount}</strong><span>{entry.unit}</span></div>
           </article>)}
         </div>
